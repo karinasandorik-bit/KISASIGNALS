@@ -18,7 +18,7 @@ export function appendLedger(path,row){fs.mkdirSync(new URL('.', 'file://'+proce
 export function readLedger(path){if(!fs.existsSync(path))return[];return fs.readFileSync(path,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse)}
 export async function putEvidence(eventType,eventId,row){
  const p=db();if(!p)return false;await initLedger();
- await p.query('INSERT INTO evidence_events(event_type,event_id,observed_at,payload) VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(event_type,event_id) DO NOTHING',[eventType,eventId,row.ts||row.signalAt||row.settledAt||new Date().toISOString(),JSON.stringify(row)]);return true;
+ await p.query('INSERT INTO evidence_events(event_type,event_id,observed_at,payload) VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(event_type,event_id) DO NOTHING',[eventType,eventId,row.ts||row.signalAt||row.armedAt||row.observedAt||row.settledAt||new Date().toISOString(),JSON.stringify(row)]);return true;
 }
 export async function hasEvidence(eventType,eventId){const p=db();if(!p)return false;await initLedger();const r=await p.query('SELECT 1 FROM evidence_events WHERE event_type=$1 AND event_id=$2 LIMIT 1',[eventType,eventId]);return r.rowCount>0}
 export async function readEvidence(eventType,{limit=100}={}){const p=db();if(!p)return null;await initLedger();const r=await p.query('SELECT payload FROM evidence_events WHERE event_type=$1 ORDER BY observed_at DESC LIMIT $2',[eventType,limit]);return r.rows.map(x=>x.payload)}
