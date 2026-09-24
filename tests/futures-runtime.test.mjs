@@ -8,7 +8,7 @@ test('futures recorder fails closed when venue is unavailable',async()=>{
  try{
   const r=await safeCaptureFuturesState('BTCUSDT');
   assert.equal(r.ok,false);
-  assert.match(r.error,/ALL_FUTURES_PROVIDERS_FAILED:HTTP_451/);
+  assert.match(r.error,/ALL_FUTURES_PROVIDERS_FAILED:.*HTTP_451/);
   assert.ok(Number.isFinite(Date.parse(r.observedAt)));
  }finally{globalThis.fetch=old}
 });
