@@ -20,10 +20,12 @@ function score(row={}){
  let s=50;if(calibrated)s+=15;if(venues>=2)s+=10;if(venues>=3)s+=5;if(finite(disagreement))s+=Math.max(-15,10-Math.abs(disagreement));if(finite(uncertainty))s-=Math.min(20,uncertainty*20);if(finite(ood))s-=Math.min(20,ood*20);
  return Math.max(0,Math.min(100,Math.round(s)));
 }
-export function signalProductView(row={}){
+export function signalProductView(row={},liveFutures=null){
  const plan=row.plan||{},entry=row.entryPolicy||{},action=plan.action||row.action||row.decision?.action||'NO_TRADE';
  const status=action==='NO_TRADE'?'PASS':entry.action==='WAIT'?'WAITING':entry.action==='LIMIT'?'IN_ENTRY':'ACTIVE';
- const t=trajectory(row),consensus=row.futuresConsensus||row.consensus||row.futures_state?.consensus||null;
+ const t=trajectory(row),consensus=liveFutures?.consensus||row.futuresConsensus||row.consensus||row.futures_state?.consensus||null,fs=liveFutures?.state||row.futuresState||{};
+ const venueStates=(consensus?.states||[]).map(v=>({source:v.source,markPrice:n(v.markPrice),indexPrice:n(v.indexPrice),fundingRate:n(v.fundingRate),observedAt:v.observedAt||v.sourceObservedAt||null,status:v.quality||'LIVE'}));
+ const marks=venueStates.map(v=>v.markPrice).filter(finite),referencePrice=marks.length?[...marks].sort((a,b)=>a-b)[Math.floor(marks.length/2)]:n(fs.markPrice);
  return {
   id:row.decision_id||row.predictionId||row.event_id||row.id||null,symbol:row.symbol||row.market?.symbol||'BTCUSDT',horizon:row.horizon||'4h',
   action,status,prospectiveScore:score(row),priority:row.validator?.confluence?.agreement??null,
@@ -31,8 +33,8 @@ export function signalProductView(row={}){
   risk:{sl:n(plan.SL??plan.sl??plan.stopLoss),tp1:n(plan.TP1??plan.tp1??plan.TP??plan.tp??plan.takeProfit),tp2:n(plan.TP2??plan.tp2),tp3:n(plan.TP3??plan.tp3),tp4:n(plan.TP4??plan.tp4),rr:n(plan.rr??row.rr),evBps:n(row.probabilisticEvBps??row.evBps??plan.evBps)},
   trajectory:t,
   model:{calibration:row.calibration_status||row.calibration?.status||row.model?.calibration_status||'UNKNOWN',version:row.modelVersion||row.model?.version||null,uncertainty:n(row.model?.uncertainty),ood:n(row.model?.ood)},
-  market:{fundingRate:n(row.futuresState?.fundingRate??row.fundingRate),openInterest:n(row.futuresState?.openInterest??row.openInterest),basisBps:n(row.futuresState?.markIndexBps??row.basisBps),depthImbalance:n(row.futuresState?.depthImbalance??row.depthImbalance),flowImbalance:n(row.futuresState?.flowImbalance??row.flowImbalance)},
-  consensus:consensus?{verified:Boolean(consensus.verified),tradeAuthority:consensus.tradeAuthority??null,sourceCount:n(consensus.sourceCount),sources:consensus.sources||[],markSpreadBps:n(consensus.markSpreadBps),reason:consensus.reason||null}:null,
+  market:{referencePrice,fundingRate:n(fs.fundingRate??row.fundingRate),openInterest:n(fs.openInterest??row.openInterest),basisBps:n(fs.markIndexBps??row.basisBps),depthImbalance:n(fs.depthImbalance??row.depthImbalance),flowImbalance:n(fs.flowImbalance??row.flowImbalance)},
+  consensus:consensus?{verified:Boolean(consensus.verified),tradeAuthority:consensus.tradeAuthority??null,sourceCount:n(consensus.sourceCount),sources:venueStates.length?venueStates:(consensus.sources||[]),markSpreadBps:n(consensus.markSpreadBps),reason:consensus.reason||null}:null,
   validator:row.validator||null,
   evidence:{mode:'PROSPECTIVE_ONLY',frozenAt:row.created_at||row.armedAt||row.observedAt||row.ts||null,modelSha:row.model_sha||row.model?.sha256||null,source:row.evidence?.source||row.market?.source||row.source||null,sourceObservedAt:row.evidence?.observed_at||row.market?.feature_timestamp||row.sourceObservedAt||null}
  };
