@@ -1,1 +1,16 @@
-{"name":"kisasignals-v2","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.mjs","demo":"node src/demo.mjs","live":"node src/live.mjs","dashboard":"node src/dashboard.mjs","start":"node src/dashboard.mjs"},"dependencies":{"pg":"^8.16.3"}}
+{
+  "name": "kisasignals-v2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs && npm run check:html",
+    "demo": "node src/demo.mjs",
+    "live": "node src/live.mjs",
+    "dashboard": "node src/dashboard.mjs",
+    "start": "node src/dashboard.mjs",
+    "check:html": "node scripts/check-html.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}
