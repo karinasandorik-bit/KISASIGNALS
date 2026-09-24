@@ -1,3 +1,4 @@
+import {validatorView} from './validator.mjs';
 const finite=x=>Number.isFinite(x),clip=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const SENSOR_CHANNELS=['funding','deltaOi','basis','orderFlow','depthImbalance','liquidations','social','news','fundamental','onchain'];
 export function sensorSnapshot(asset,evidence={}){
@@ -20,5 +21,5 @@ export function decisionBoundary(asset){
  return{current:asset.action,next:'MODEL_EVALUATION',condition:'candidate must enter calibrated asset model; candidate score cannot authorize trade'};
 }
 export function buildDecisionIntelligence(universe,evidenceBySymbol={}){
- return universe.map(a=>{const sensors=sensorSnapshot(a,evidenceBySymbol[a.symbol]||{}),request=informationRequest(a,sensors),boundary=decisionBoundary(a);return{...a,sensors,informationRequest:request,decisionBoundary:boundary,tradeAuthority:'NONE_UNTIL_CALIBRATED_MODEL'}}).sort((a,b)=>b.decisionQuality-a.decisionQuality);
+ return universe.map(a=>{const sensors=sensorSnapshot(a,evidenceBySymbol[a.symbol]||{}),request=informationRequest(a,sensors),boundary=decisionBoundary(a);return{...a,sensors,validator:validatorView(a),informationRequest:request,decisionBoundary:boundary,tradeAuthority:'NONE_UNTIL_CALIBRATED_MODEL'}}).sort((a,b)=>b.decisionQuality-a.decisionQuality);
 }
