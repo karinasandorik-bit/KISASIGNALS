@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createExecutor} from '../src/bounded-agent.mjs';
+test('paper and shadow share permit contract',async()=>{const ex=createExecutor({shadow:async()=>({x:1}),paper:async()=>({x:2}),microLive:async()=>({x:3})});const p={intent_id:'a'},i={intent_id:'a'};assert.equal((await ex(p,i,'SHADOW')).x,1);assert.equal((await ex(p,i,'PAPER')).x,2)});
+test('micro-live remains impossible without explicit enable',async()=>{delete process.env.KISA_MICRO_LIVE_ENABLED;const ex=createExecutor({shadow:async()=>{},paper:async()=>{},microLive:async()=>({x:3})});await assert.rejects(()=>ex({intent_id:'a'},{intent_id:'a'},'MICRO_LIVE'),/KILL_SWITCH/)});
