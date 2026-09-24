@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('dashboard artifact exposes live observation contract',()=>{const h=fs.readFileSync('public/index.html','utf8');const s=fs.readFileSync('src/dashboard.mjs','utf8');assert.match(h,/OBSERVATION \/ SHADOW ONLY/);assert.match(h,/Trajectory probabilities/);assert.match(s,/\/api\/state/);assert.match(s,/EventSource|text\/event-stream/);assert.match(s,/runLive/)});
