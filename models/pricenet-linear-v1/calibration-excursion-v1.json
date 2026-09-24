@@ -1,0 +1,116 @@
+{
+  "artifactVersion": 1,
+  "version": "PriceNet-calibration-excursion-v1",
+  "createdAt": "2026-09-24T13:06:18.147Z",
+  "baseModel": "PriceNet-linear-v1",
+  "horizonBars": 4,
+  "source": {
+    "venue": "Binance",
+    "symbol": "BTCUSDT",
+    "market": "spot",
+    "interval": "1h",
+    "bars": 1000,
+    "first": "2026-08-13T22:00:00.000Z",
+    "last": "2026-09-24T13:00:00.000Z",
+    "note": "Cross-venue proxy for Coinbase BTC-USD live inference. Shadow-only until prospective Coinbase settlement validates transfer."
+  },
+  "split": {
+    "samples": 983,
+    "calibration": 688,
+    "holdout": 295,
+    "chronological": true,
+    "splitTime": "2026-09-12T03:00:00.000Z"
+  },
+  "probabilityCalibration": {
+    "method": "identity_after_holdout_diagnostic",
+    "temperature": 1,
+    "status": "SHADOW_ACCEPTED_NOT_PRODUCTION_CALIBRATED",
+    "holdout": {
+      "nllRaw": 1.001248,
+      "brierRaw": 0.60295,
+      "eceRaw": 0.036523
+    },
+    "rejectedCandidate": {
+      "method": "temperature_scaling",
+      "temperature": 1.44,
+      "nll": 1.00745,
+      "brier": 0.606688,
+      "ece": 0.050412,
+      "reason": "WORSE_THAN_RAW_ON_CHRONOLOGICAL_HOLDOUT"
+    }
+  },
+  "excursion": {
+    "method": "empirical_conditional_quantiles",
+    "status": "SHADOW_ACCEPTED",
+    "holdoutMae90Coverage": 0.939,
+    "sides": {
+      "LONG": {
+        "probability": "pUp",
+        "bins": [
+          {
+            "min": 0,
+            "max": 0.26748,
+            "n": 229,
+            "mfe50": 35.72,
+            "mae50": 31.62,
+            "mae90": 132
+          },
+          {
+            "min": 0.26748,
+            "max": 0.310627,
+            "n": 229,
+            "mfe50": 30.3,
+            "mae50": 28.92,
+            "mae90": 135.24
+          },
+          {
+            "min": 0.310627,
+            "max": 1.000001,
+            "n": 230,
+            "mfe50": 69.71,
+            "mae50": 68.69,
+            "mae90": 140.09
+          }
+        ]
+      },
+      "SHORT": {
+        "probability": "pDown",
+        "bins": [
+          {
+            "min": 0,
+            "max": 0.225181,
+            "n": 229,
+            "mfe50": 41.95,
+            "mae50": 45.2,
+            "mae90": 219.68
+          },
+          {
+            "min": 0.225181,
+            "max": 0.260275,
+            "n": 229,
+            "mfe50": 28.89,
+            "mae50": 26.94,
+            "mae90": 123.47
+          },
+          {
+            "min": 0.260275,
+            "max": 1.000001,
+            "n": 230,
+            "mfe50": 51.3,
+            "mae50": 62.71,
+            "mae90": 131.37
+          }
+        ]
+      }
+    }
+  },
+  "promotion": {
+    "status": "SHADOW_ELIGIBLE",
+    "constraints": [
+      "NO_CAPITAL_EXECUTION",
+      "CROSS_VENUE_PROXY",
+      "PROSPECTIVE_COINBASE_4H_SETTLEMENT_REQUIRED"
+    ],
+    "note": "No profitability claim. Promotion depends only on future outcomes logged after this artifact was frozen."
+  }
+}
