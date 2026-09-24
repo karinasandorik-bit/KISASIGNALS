@@ -6,6 +6,7 @@ COPY src ./src
 COPY models ./models
 COPY public ./public
 COPY tests ./tests
+COPY scripts ./scripts
 RUN npm test
 ENV PORT=3000
 EXPOSE 3000
