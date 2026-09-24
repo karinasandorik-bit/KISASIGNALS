@@ -7,10 +7,12 @@
     "demo": "node src/demo.mjs",
     "live": "node src/live.mjs",
     "dashboard": "node src/dashboard.mjs",
+    "agent": "node src/personal-agent.mjs",
     "start": "node src/dashboard.mjs",
     "check:html": "node scripts/check-html.mjs"
   },
   "dependencies": {
+    "openai": "^6.0.0",
     "pg": "^8.16.3"
   }
 }
