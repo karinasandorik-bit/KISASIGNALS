@@ -1,13 +1,27 @@
 # KISASIGNALS
 
-Recovered research kernel; **not production-ready**. Observation/shadow only; no order execution.
+Evidence-first crypto decision system. **Shadow/research only; no live order execution or profitability claim.**
 
-Run with Node 22+: `npm test`, `npm run live`.
-Optional `LEDGER_PATH` selects the local observation ledger. No credentials required.
-There are no third-party runtime dependencies.
+## Production contract
+`market → evidence → trajectory model → validator → information value → optimal entry → MetaGate → freeze → world → settlement → causal evaluation → independent promotion gate → bounded authority`
 
-Current live path: Coinbase BTC-USD hourly closed bars, with Kraken XBTUSD fallback → timestamp/quality checks → frozen linear softmax classifier → explicit NO_TRADE because verified excursion distributions and calibration are unavailable → observation ledger.
+Current production includes:
+- frozen PriceNet linear baseline with calibration/excursion artifact;
+- prospective immutable prediction + 4h settlement ledger in Postgres;
+- multi-venue derivatives recorder with freshness, circuit breakers and cross-venue consensus;
+- OKX + Bitget currently usable from the production region; unavailable venues fail closed;
+- persisted OI snapshots; ΔOI requires a same-source observation separated by at least 60s;
+- sensor ablation/shadow evidence and a decision constitution;
+- product API for Signals, Open Entries and prospective-only statistics;
+- signed external collector ingestion boundary for future region-independent data collection.
 
-This artifact is a linear baseline, not a trained deep neural trajectory model. The kernel's example EV formula, risk sizing, settlement and metrics are research scaffolding, not approved execution logic. `npm run demo` uses synthetic data only.
+## Epistemic boundary
+A generated model/sensor/policy has **no trading authority**. Promotion path:
+`generate → freeze → shadow → world → causal evaluation → independent promotion gate → bounded authority`.
 
-See [reality audit](docs/reality-audit-2026-09-24.md) for verified scope and blockers. No accuracy or profitability claim is supported.
+Current PriceNet is a small linear baseline, not a deep neural trajectory model. Validator and sensor challengers remain research components. GGShot-style product UX is a product target, not evidence of model quality.
+
+## Run
+Node 22+: `npm test`, `npm run live`, `npm start`.
+
+See `docs/reality-audit-2026-09-24.md` for historical recovery notes.
