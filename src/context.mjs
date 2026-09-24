@@ -1,0 +1,8 @@
+const get=async u=>{const r=await fetch(u,{headers:{'user-agent':'KISASIGNALS/2.2'}});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()};
+export async function marketContext(){
+ const out={observedAt:new Date().toISOString(),fearGreed:null,global:null,social:{status:'DISABLED',source:'X API v2'}};
+ try{const x=await get('https://api.alternative.me/fng/?limit=1');const z=x.data?.[0];if(z)out.fearGreed={value:Number(z.value),classification:z.value_classification,source:'alternative.me'}}catch(e){out.fearGreed={error:e.message}}
+ try{const x=await get('https://api.alternative.me/v2/global/');const z=x.data;if(z)out.global={marketCapUsd:z.quotes?.USD?.total_market_cap,volume24hUsd:z.quotes?.USD?.total_volume_24h,btcDominance:z.bitcoin_percentage_of_market_cap,source:'alternative.me'}}catch(e){out.global={error:e.message}}
+ if(process.env.X_BEARER_TOKEN){try{const q=encodeURIComponent('(bitcoin OR ethereum OR crypto) lang:en -is:retweet');const x=await fetch('https://api.x.com/2/tweets/search/recent?query='+q+'&max_results=50&tweet.fields=created_at,public_metrics',{headers:{authorization:'Bearer '+process.env.X_BEARER_TOKEN}});if(!x.ok)throw new Error('HTTP '+x.status);const z=await x.json(),texts=(z.data||[]).map(v=>v.text.toLowerCase()),pos=texts.filter(t=>/bull|breakout|buy|long|surge|rally|ath/.test(t)).length,neg=texts.filter(t=>/bear|sell|short|crash|dump|liquidat|fraud/.test(t)).length;out.social={status:'VERIFIED',source:'X API v2 recent search',posts:texts.length,sentiment:texts.length?(pos-neg)/texts.length:0,positive:pos,negative:neg}}catch(e){out.social={status:'FAILED',source:'X API v2',error:e.message}}}
+ return out;
+}
