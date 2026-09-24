@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import {putEvidence} from './ledger.mjs';
+import {putEvidence,readEvidence} from './ledger.mjs';
 
 const MAX_AGE_MS=Number(process.env.COLLECTOR_MAX_AGE_MS||120000);
 const REQUIRED=['symbol','source','sourceObservedAt','capturedAt','markPrice','indexPrice','fundingRate','openInterest','bestBid','bestAsk','flowImbalance'];
@@ -11,7 +11,8 @@ function validate(x){const missing=REQUIRED.filter(k=>x[k]===undefined||x[k]===n
 export async function ingestCollectorSnapshot(snapshot,{signature,rawBody}={}){
  const body=rawBody||canonical(snapshot);if(!verifySignature(body,signature))throw Error('COLLECTOR_SIGNATURE_INVALID');
  const q=validate(snapshot);if(q.status!=='VERIFIED')throw Error('COLLECTOR_EVIDENCE_DEGRADED:'+JSON.stringify(q));
- const row={...snapshot,ageMs:q.ageMs,completeness:q.completeness,quality:'VERIFIED',transport:'signed-external-collector'};
+ const prior=(await readEvidence('futures_state',{limit:200})).map(x=>x.payload||x).find(x=>x.symbol===snapshot.symbol&&x.source===snapshot.source&&Number.isFinite(Number(x.openInterest))&&x.sourceObservedAt!==snapshot.sourceObservedAt);const prevOi=prior?Number(prior.openInterest):null,oi=Number(snapshot.openInterest),deltaOiPct=Number.isFinite(prevOi)&&prevOi!==0?(oi-prevOi)/prevOi*100:null;
+ const row={...snapshot,previousOpenInterest:prevOi,deltaOiPct,ageMs:q.ageMs,completeness:q.completeness,quality:'VERIFIED',transport:'signed-external-collector',sensorAdmission:deltaOiPct===null?'WAITING_FOR_OI1':'ELIGIBLE_FOR_SHADOW_TRIAL'};
  const id=[row.symbol,row.source,row.sourceObservedAt].join(':');await putEvidence('futures_state',id,row);
  await putEvidence('collector_health',row.capturedAt,{observedAt:row.capturedAt,source:row.source,status:'VERIFIED',ageMs:q.ageMs,completeness:q.completeness});
  return row;
