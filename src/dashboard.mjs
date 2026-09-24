@@ -8,6 +8,8 @@ import {scanUniverse} from './universe.mjs';
 import {marketContext} from './context.mjs';
 import {captureExternalEvidence,evidenceMap} from './evidence-adapters.mjs';
 import {buildDecisionIntelligence} from './decision-intelligence.mjs';
+import {armLiveAblations,settleLiveAblations} from './live-ablation.mjs';
+import {putEvidence} from './ledger.mjs';
 const PORT=Number(process.env.PORT||3000),LEDGER=process.env.LEDGER_PATH||'data/prospective.jsonl',SETTLEMENTS=process.env.SETTLEMENT_PATH||'data/settlements.jsonl',REFRESH_MS=Math.max(60_000,Number(process.env.REFRESH_MS||300_000)),clients=new Set();
 let latest=null,lastError=null,running=false,dbHealth={backend:'initializing',postgres:false},dbRows=null,dbSettlements=null,futuresState=null,universe=[],context=null,previousUniverse=new Map(),externalEvidence={},decisionUniverse=[];
 function read(path,n=100){try{return fs.readFileSync(path,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse).slice(-n).reverse()}catch{return[]}}
@@ -18,7 +20,7 @@ async function tick(){if(running)return;running=true;try{const m=await market();
 const intel=await Promise.allSettled([scanUniverse({limit:Number(process.env.UNIVERSE_LIMIT||60),previous:previousUniverse}),marketContext()]);
 if(intel[0].status==='fulfilled'){universe=intel[0].value;previousUniverse=new Map(universe.filter(x=>Number.isFinite(x.openInterest)).map(x=>[x.symbol,{openInterest:x.openInterest,observedAt:x.observedAt}]))}else console.error(JSON.stringify({event:'UNIVERSE_SCAN_FAILED',error:intel[0].reason?.message}));
 if(intel[1].status==='fulfilled')context=intel[1].value;else console.error(JSON.stringify({event:'MARKET_CONTEXT_FAILED',error:intel[1].reason?.message}));
-const leaders=universe.slice(0,8);const ev=await Promise.allSettled(leaders.map(x=>captureExternalEvidence(x.symbol)));externalEvidence=Object.fromEntries(leaders.map((x,i)=>[x.symbol,ev[i].status==='fulfilled'?evidenceMap(ev[i].value):{}]));decisionUniverse=buildDecisionIntelligence(universe,externalEvidence);
+const leaders=universe.slice(0,8);const ev=await Promise.allSettled(leaders.map(x=>captureExternalEvidence(x.symbol)));externalEvidence=Object.fromEntries(leaders.map((x,i)=>[x.symbol,ev[i].status==='fulfilled'?evidenceMap(ev[i].value):{}]));decisionUniverse=buildDecisionIntelligence(universe,externalEvidence);const matrixAt=new Date().toISOString();await putEvidence('asset_matrix',matrixAt,{observedAt:matrixAt,assets:decisionUniverse});const armed=await armLiveAblations(decisionUniverse,matrixAt);const abSettled=await settleLiveAblations(decisionUniverse,matrixAt);if(armed.length)console.log(JSON.stringify({event:'ABLATION_TRIALS_ARMED',n:armed.length,at:matrixAt}));if(abSettled.length)console.log(JSON.stringify({event:'ABLATION_TRIALS_SETTLED',n:abSettled.length,at:matrixAt}));
 if(futuresState.ok){
  const s=futuresState.state;
  console.log(JSON.stringify({event:'FUTURES_STATE_VERIFIED',symbol:s.symbol,observed_at:s.observedAt,source:s.source,funding_rate:s.fundingRate,open_interest:s.openInterest,mark_index_bps:s.markIndexBps,spread_bps:s.spreadBps,depth_imbalance:s.depthImbalance,flow_imbalance:s.flowImbalance}));
