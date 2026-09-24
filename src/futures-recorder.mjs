@@ -1,23 +1,9 @@
-import {putEvidence} from './ledger.mjs';
-const BASE=process.env.BINANCE_FUTURES_BASE_URL||'https://fapi.binance.com';
-const num=x=>Number(x);
-async function j(path){const r=await fetch(BASE+path,{signal:AbortSignal.timeout(8000)});if(!r.ok)throw new Error(`BINANCE_FUTURES_HTTP_${r.status}`);return r.json()}
-function bookFeatures(depth){
- const bids=depth.bids.map(([p,q])=>[num(p),num(q)]),asks=depth.asks.map(([p,q])=>[num(p),num(q)]);
- const bid=bids[0]?.[0],ask=asks[0]?.[0],mid=(bid+ask)/2,bq=bids.reduce((s,x)=>s+x[1],0),aq=asks.reduce((s,x)=>s+x[1],0);
- return {bestBid:bid,bestAsk:ask,mid,spreadBps:(ask-bid)/mid*10000,depthImbalance:(bq-aq)/(bq+aq),bidDepth:bq,askDepth:aq,lastUpdateId:depth.lastUpdateId};
-}
-function flowFeatures(ts){let buy=0,sell=0;for(const t of ts){const q=num(t.q);if(t.m)sell+=q;else buy+=q}const total=buy+sell;return{aggressiveBuyQty:buy,aggressiveSellQty:sell,flowImbalance:total?(buy-sell)/total:0,tradeCount:ts.length}}
-export async function captureFuturesState(symbol='BTCUSDT'){
- const [mark,oi,depth,trades,funding]=await Promise.all([
-  j(`/fapi/v1/premiumIndex?symbol=${symbol}`),
-  j(`/fapi/v1/openInterest?symbol=${symbol}`),
-  j(`/fapi/v1/depth?symbol=${symbol}&limit=20`),
-  j(`/fapi/v1/aggTrades?symbol=${symbol}&limit=100`),
-  j(`/fapi/v1/fundingRate?symbol=${symbol}&limit=1`)
- ]);
- const observedAt=new Date(Math.max(num(mark.time)||0,num(oi.time)||0,Date.now())).toISOString(),book=bookFeatures(depth),flow=flowFeatures(trades);
- const row={event:'FUTURES_STATE',symbol,observedAt,source:'binance-usds-futures-public',markPrice:num(mark.markPrice),indexPrice:num(mark.indexPrice),markIndexBps:(num(mark.markPrice)/num(mark.indexPrice)-1)*10000,fundingRate:num(mark.lastFundingRate??funding.at(-1)?.fundingRate),nextFundingTime:mark.nextFundingTime,openInterest:num(oi.openInterest),...book,...flow};
- const id=`${symbol}:${Math.floor(Date.parse(observedAt)/60000)}`;await putEvidence('futures_state',id,row);return row;
-}
+import {putEvidence,readEvidence} from './ledger.mjs';
+const providers=(process.env.FUTURES_PROVIDERS||'binance,bybit').split(',').map(x=>x.trim()).filter(Boolean),num=Number;
+async function get(url){const r=await fetch(url,{headers:{'user-agent':'KISASIGNALS/3.0'},signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('HTTP_'+r.status);return r.json()}
+const book=(bids,asks)=>{const B=bids.map(x=>[num(x[0]??x.price),num(x[1]??x.size)]),A=asks.map(x=>[num(x[0]??x.price),num(x[1]??x.size)]),bid=B[0]?.[0],ask=A[0]?.[0],mid=(bid+ask)/2,bq=B.reduce((s,x)=>s+x[1],0),aq=A.reduce((s,x)=>s+x[1],0);return{bestBid:bid,bestAsk:ask,mid,spreadBps:(ask-bid)/mid*1e4,depthImbalance:(bq-aq)/(bq+aq||1)}};
+async function binance(symbol){const base=process.env.BINANCE_FUTURES_BASE_URL||'https://fapi.binance.com';const [m,oi,d,t]=await Promise.all([get(base+'/fapi/v1/premiumIndex?symbol='+symbol),get(base+'/fapi/v1/openInterest?symbol='+symbol),get(base+'/fapi/v1/depth?symbol='+symbol+'&limit=20'),get(base+'/fapi/v1/aggTrades?symbol='+symbol+'&limit=100')]);let buy=0,sell=0;t.forEach(x=>x.m?sell+=num(x.q):buy+=num(x.q));return{source:'binance-usds-futures-public',sourceObservedAt:new Date(num(m.time)||Date.now()).toISOString(),markPrice:num(m.markPrice),indexPrice:num(m.indexPrice),fundingRate:num(m.lastFundingRate),openInterest:num(oi.openInterest),...book(d.bids,d.asks),flowImbalance:(buy-sell)/(buy+sell||1)}}
+async function bybit(symbol){const base=process.env.BYBIT_PUBLIC_BASE_URL||'https://api.bybit.com';const q='?category=linear&symbol='+symbol,[tk,ob,tr]=await Promise.all([get(base+'/v5/market/tickers'+q),get(base+'/v5/market/orderbook'+q+'&limit=50'),get(base+'/v5/market/recent-trade'+q+'&limit=100')]),x=tk.result?.list?.[0],d=ob.result;if(!x||!d)throw Error('BYBIT_BAD_PAYLOAD');let buy=0,sell=0;(tr.result?.list||[]).forEach(z=>z.S==='Buy'?buy+=num(z.v):sell+=num(z.v));return{source:'bybit-v5-public',sourceObservedAt:new Date(num(tk.time)||num(ob.time)||Date.now()).toISOString(),markPrice:num(x.markPrice),indexPrice:num(x.indexPrice),fundingRate:num(x.fundingRate),openInterest:num(x.openInterest),...book(d.b,d.a),flowImbalance:(buy-sell)/(buy+sell||1)}}
+async function previousOI(symbol,source){const rows=await readEvidence('futures_state',{limit:200})||[];return rows.find(x=>x.symbol===symbol&&x.source===source&&Number.isFinite(x.openInterest))}
+export async function captureFuturesState(symbol='BTCUSDT'){let last;for(const p of providers){try{const raw=p==='binance'?await binance(symbol):p==='bybit'?await bybit(symbol):null;if(!raw)continue;const capturedAt=new Date().toISOString(),ageMs=Date.parse(capturedAt)-Date.parse(raw.sourceObservedAt),fresh=Number.isFinite(ageMs)&&ageMs>=-30000&&ageMs<=120000;if(!fresh)throw Error('STALE_SOURCE_'+ageMs);const prev=await previousOI(symbol,raw.source),deltaOiPct=prev?.openInterest?100*(raw.openInterest/prev.openInterest-1):null,row={event:'FUTURES_STATE',symbol,...raw,capturedAt,observedAt:raw.sourceObservedAt,ageMs,quality:'VERIFIED',deltaOiPct:Number.isFinite(deltaOiPct)?+deltaOiPct.toFixed(5):null,markIndexBps:(raw.markPrice/raw.indexPrice-1)*1e4};const id=symbol+':'+raw.source+':'+Math.floor(Date.parse(raw.sourceObservedAt)/60000);await putEvidence('futures_state',id,row);return row}catch(e){last=e}}throw Error('ALL_FUTURES_PROVIDERS_FAILED:'+last?.message)}
 export async function safeCaptureFuturesState(symbol='BTCUSDT'){try{return{ok:true,state:await captureFuturesState(symbol)}}catch(e){return{ok:false,error:e.message,observedAt:new Date().toISOString()}}}
