@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {runLive,market} from './live.mjs';
 import {settleEligible} from './settlement.mjs';
 import {ledgerHealth,readEvidence} from './ledger.mjs';
-import {safeCaptureFuturesState} from './futures-recorder.mjs';
+import {safeCaptureFuturesState,futuresProviderHealth} from './futures-recorder.mjs';
 import {scanUniverse} from './universe.mjs';
 import {marketContext} from './context.mjs';
 import {captureExternalEvidence,evidenceMap} from './evidence-adapters.mjs';
@@ -24,6 +24,7 @@ if(intel[1].status==='fulfilled')context=intel[1].value;else console.error(JSON.
 const leaders=universe.slice(0,8);const ev=await Promise.allSettled(leaders.map(x=>captureExternalEvidence(x.symbol)));externalEvidence=Object.fromEntries(leaders.map((x,i)=>[x.symbol,ev[i].status==='fulfilled'?evidenceMap(ev[i].value):{}]));decisionUniverse=buildDecisionIntelligence(universe,externalEvidence);const matrixAt=new Date().toISOString();await putEvidence('asset_matrix',matrixAt,{observedAt:matrixAt,assets:decisionUniverse});const armed=await armLiveAblations(decisionUniverse,matrixAt);const abSettled=await settleLiveAblations(decisionUniverse,matrixAt);if(armed.length)console.log(JSON.stringify({event:'ABLATION_TRIALS_ARMED',n:armed.length,at:matrixAt}));if(abSettled.length)console.log(JSON.stringify({event:'ABLATION_TRIALS_SETTLED',n:abSettled.length,at:matrixAt}));
 if(futuresState.ok){
  const s=futuresState.state;
+ console.log(JSON.stringify({event:'FUTURES_PROVIDER_HEALTH',providers:futuresProviderHealth()}));
  console.log(JSON.stringify({event:'FUTURES_STATE_VERIFIED',symbol:s.symbol,observed_at:s.observedAt,source:s.source,funding_rate:s.fundingRate,open_interest:s.openInterest,mark_index_bps:s.markIndexBps,spread_bps:s.spreadBps,depth_imbalance:s.depthImbalance,flow_imbalance:s.flowImbalance}));
 }else{
  console.error(JSON.stringify({event:'FUTURES_STATE_FAILED',observed_at:futuresState.observedAt,error:futuresState.error}));
