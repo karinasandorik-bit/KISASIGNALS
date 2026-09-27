@@ -1,5 +1,5 @@
 {
-  "schema": "KISA_RESEARCH_TRIAL_V1_DRAFT",
+  "schema": "KISA_RESEARCH_TRIAL_V1",
   "trialId": "FZ-CPI-20261014-O1",
   "frozenAt": "2026-09-27T13:32:00Z",
   "mode": "SHADOW",
@@ -10,7 +10,13 @@
     "assets": [
       "BTCUSDT"
     ],
-    "outcomeKnownAtFreeze": false
+    "outcomeKnownAtFreeze": false,
+    "outcomeWindow": {
+      "anchor": "releaseAt",
+      "startMinutes": 0,
+      "endMinutes": 240,
+      "marketMetric": "BTCUSDT terminal return over first 4 completed post-release hours"
+    }
   },
   "worldFacts": [
     {
@@ -49,6 +55,9 @@
   },
   "scoring": {
     "primaryContrast": "delta21 = Performance(A2)-Performance(A1)",
+    "lossFunction": "signed net terminal return in basis points under each frozen branch action; WAIT=0 bps; LONG=+returnBps-costBps; SHORT=-returnBps-costBps",
+    "costBps": 13,
+    "thetaPracticalBps": 10,
     "eventStatus": [
       "PROSPECTIVE_HIT",
       "PROSPECTIVE_MISS",
@@ -56,16 +65,28 @@
       "INVALID_TRIAL"
     ],
     "perEventCI": false,
-    "thetaPractical": "MUST_BE_NUMERICALLY_FROZEN_BEFORE_ARMING",
-    "note": "Cross-event CI is program-level only; one CPI event is one prospective datum."
+    "note": "PROSPECTIVE_HIT requires A2 action != A1 action and delta21 > 10 bps. Cross-event CI is program-level only; one CPI event is one prospective datum."
   },
   "antiPostHoc": [
     "branches",
-    "event_window",
-    "loss_function",
-    "theta_practical",
-    "action_mapping",
-    "acquisition_spec"
+    "target.outcomeWindow",
+    "scoring.lossFunction",
+    "scoring.thetaPracticalBps",
+    "actionMapping",
+    "acquisitionSpec"
   ],
-  "executionAuthority": "NONE_SHADOW_ONLY"
+  "executionAuthority": "NONE_SHADOW_ONLY",
+  "status": "FROZEN_NOT_ARMED",
+  "actionMapping": {
+    "allowed": [
+      "LONG",
+      "SHORT",
+      "WAIT"
+    ],
+    "semantics": {
+      "LONG": "positive BTCUSDT 4h directional exposure",
+      "SHORT": "negative BTCUSDT 4h directional exposure",
+      "WAIT": "zero directional exposure"
+    }
+  }
 }
