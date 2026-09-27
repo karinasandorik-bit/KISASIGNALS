@@ -64,7 +64,7 @@ export function createExecutor({ shadow, paper, microLive }) {
 
 export async function runBoundedCycle({
   mode="SHADOW", perceive, estimateUncertainty, proposeEvidence, acquireEvidence,
-  decide, riskConstitution, executor, settle, causalAudit, ledger
+  decide, riskConstitution, authorityController, executor, settle, causalAudit, ledger
 }) {
   if (!MODES.includes(mode)) throw new Error("INVALID_MODE");
   const runId=id();
@@ -101,6 +101,12 @@ export async function runBoundedCycle({
   const risk=riskConstitution.evaluate(intent,{...perception.risk_context,mode});
   await ledger.event(runId,risk.permitted?"RISK_PERMIT":"RISK_DENIED",risk);
   if (!risk.permitted) return {runId,mode,decision,status:"DENIED",risk};
+
+  const authority = authorityController
+    ? authorityController.authorize(intent,{mode})
+    : (mode === "SHADOW" ? {permitted:true,reason:"BASE_SHADOW_AUTHORITY"} : {permitted:false,reasons:["AUTHORITY_CONTROLLER_REQUIRED"]});
+  await ledger.event(runId,authority.permitted?"AUTHORITY_GRANTED":"AUTHORITY_DENIED",authority);
+  if (!authority.permitted) return {runId,mode,decision,status:"AUTHORITY_DENIED",risk,authority};
 
   const execution=await executor(risk.permit,intent,mode);
   await ledger.event(runId,"EXECUTION_RESULT",execution);
