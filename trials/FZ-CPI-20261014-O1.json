@@ -1,0 +1,92 @@
+{
+  "schema": "KISA_RESEARCH_TRIAL_V1",
+  "trialId": "FZ-CPI-20261014-O1",
+  "frozenAt": "2026-09-27T13:32:00Z",
+  "mode": "SHADOW",
+  "target": {
+    "event": "US_CPI",
+    "referenceMonth": "2026-09",
+    "releaseAt": "2026-10-14T08:30:00-04:00",
+    "assets": [
+      "BTCUSDT"
+    ],
+    "outcomeKnownAtFreeze": false,
+    "outcomeWindow": {
+      "anchor": "releaseAt",
+      "startMinutes": 0,
+      "endMinutes": 240,
+      "marketMetric": "BTCUSDT terminal return over first 4 completed post-release hours"
+    }
+  },
+  "worldFacts": [
+    {
+      "observedAt": "2026-09-16",
+      "source": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm",
+      "fact": "FOMC raised target range 25bp to 3.75-4.00%; vote 12-0; statement says inflation remains elevated."
+    },
+    {
+      "observedAt": "2026-09-27",
+      "source": "https://www.bls.gov/schedule/2026/10_sched_list.htm",
+      "fact": "September 2026 CPI scheduled for 2026-10-14 08:30 ET."
+    }
+  ],
+  "prior": {
+    "label": "M1",
+    "claim": "cutting/dovish regime"
+  },
+  "frozenEvidence": {
+    "policyObservation": "2026-09-16 FOMC primary-source statement"
+  },
+  "residual": "Frozen prior M1 conflicts with primary-source policy action and secondary-source narratives.",
+  "requiredObservation": "Authoritative current monetary-policy observation capable of discriminating M1 vs M2.",
+  "acquisitionSpec": {
+    "operator": "PRIMARY_SOURCE_RETRIEVAL",
+    "authority": "federalreserve.gov",
+    "documentDate": "2026-09-16"
+  },
+  "derived": {
+    "regimeLabel": "RESTRICTIVE_HIKING",
+    "epistemicStatus": "DERIVED_NOT_WORLD_FACT"
+  },
+  "branches": {
+    "A0": "Frozen prior only; no new acquisition.",
+    "A1": "Adversarial closure/recombination over evidence frozen before O*; live external acquisition forbidden.",
+    "A2": "Residual-derived primary-source acquisition O*; live acquisition allowed only by acquisitionSpec."
+  },
+  "scoring": {
+    "primaryContrast": "delta21 = Performance(A2)-Performance(A1)",
+    "lossFunction": "signed net terminal return in basis points under each frozen branch action; WAIT=0 bps; LONG=+returnBps-costBps; SHORT=-returnBps-costBps",
+    "costBps": 13,
+    "thetaPracticalBps": 10,
+    "eventStatus": [
+      "PROSPECTIVE_HIT",
+      "PROSPECTIVE_MISS",
+      "CLOSURE_SURVIVES",
+      "INVALID_TRIAL"
+    ],
+    "perEventCI": false,
+    "note": "PROSPECTIVE_HIT requires A2 action != A1 action and delta21 > 10 bps. Cross-event CI is program-level only; one CPI event is one prospective datum."
+  },
+  "antiPostHoc": [
+    "branches",
+    "target.outcomeWindow",
+    "scoring.lossFunction",
+    "scoring.thetaPracticalBps",
+    "actionMapping",
+    "acquisitionSpec"
+  ],
+  "executionAuthority": "NONE_SHADOW_ONLY",
+  "status": "FROZEN_NOT_ARMED",
+  "actionMapping": {
+    "allowed": [
+      "LONG",
+      "SHORT",
+      "WAIT"
+    ],
+    "semantics": {
+      "LONG": "positive BTCUSDT 4h directional exposure",
+      "SHORT": "negative BTCUSDT 4h directional exposure",
+      "WAIT": "zero directional exposure"
+    }
+  }
+}
