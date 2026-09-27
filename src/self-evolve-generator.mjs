@@ -27,7 +27,7 @@ export async function generateFirstCandidate({corpus=null,baselineArtifactHash,c
  const attemptId=sha256(attempt);await persist('self_evolve_attempt',attemptId,attempt);
  let response,generated;
  try{
-  response=await api.responses.create({model,instructions,input:JSON.stringify({trial:SELF_EVOLVE_001,evidenceCutoff:cutoff,corpusHash,evidence}),text:{format:{type:'json_object'}}});
+  response=await api.responses.create({model,instructions,input:`Return JSON only.\n${JSON.stringify({trial:SELF_EVOLVE_001,evidenceCutoff:cutoff,corpusHash,evidence})}`,text:{format:{type:'json_object'}}});
   generated=JSON.parse(response.output_text);
  }catch(error){
   const row={schema:'KISA_SELF_EVOLVE_GENERATION_V1',trialId:'SELF-EVOLVE-001',status:'FAILED',attemptId,corpusHash,evidenceCutoff:cutoff,model,errorCode:error?.code??null,errorType:error?.type??error?.name??'Error',errorMessage:String(error?.message??error).slice(0,1000),generatedAt:new Date().toISOString()};
