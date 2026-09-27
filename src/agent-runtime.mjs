@@ -4,6 +4,7 @@ import {captureFuturesConsensus} from './futures-recorder.mjs';
 import {market} from './market.mjs';
 import {putEvidence} from './ledger.mjs';
 import {ProspectiveLedger,createRiskConstitution,createExecutor,runBoundedCycle} from './bounded-agent.mjs';
+import {createAuthorityController} from './capability-grant.mjs';
 
 const bps=(a,b)=>b?Math.abs(a-b)/b*1e4:Infinity;
 const pgLedger=new ProspectiveLedger({append:async e=>{
@@ -21,7 +22,7 @@ function decisionFromPriceNet(px,consensus,referencePrice){
  return {action:d.action,symbol:'BTCUSDT',risk_usd:+(r.sizeUsd*r.slBps/10000).toFixed(4),notional_usd:r.sizeUsd,leverage:1,stop,model_version:px.modelVersion,model_sha256:px.modelSha256,reason:d.reason};
 }
 
-export async function runIntegratedAgent({mode=process.env.KISA_EXECUTION_MODE||'SHADOW',marketFn=market,shadowFn=async i=>({kind:'shadow',accepted:true,intent:i}),paperFn=async i=>({kind:'paper',accepted:true,intent:i}),microLiveFn=async()=>{throw Error('MICRO_LIVE_ADAPTER_NOT_CONFIGURED')}}={}){
+export async function runIntegratedAgent({mode=process.env.KISA_EXECUTION_MODE||'SHADOW',marketFn=market,shadowFn=async i=>({kind:'shadow',accepted:true,intent:i}),paperFn=async i=>({kind:'paper',accepted:true,intent:i}),microLiveFn=async()=>{throw Error('MICRO_LIVE_ADAPTER_NOT_CONFIGURED')},capabilityGrant=null}={}){
  let state;
  return runBoundedCycle({
   mode,ledger:pgLedger,
@@ -35,6 +36,7 @@ export async function runIntegratedAgent({mode=process.env.KISA_EXECUTION_MODE||
   proposeEvidence:async({decision})=>decision.action==='ABSTAIN'&&state.consensus.reason!=='CONSENSUS'?{measurement:'futures_consensus_refresh',predicted_effect:'may change ABSTAIN to trade only if independent venues converge'}:null,
   acquireEvidence:async()=>{const c=await captureFuturesConsensus('BTCUSDT');state.consensus=c;return {measurement:'futures_consensus_refresh',verified:c.verified,reason:c.reason,sources:c.sources}},
   riskConstitution:createRiskConstitution({allowedSymbols:['BTCUSDT'],maxRiskUsd:Number(process.env.KISA_MAX_RISK_USD||1),maxNotionalUsd:Number(process.env.KISA_MAX_NOTIONAL_USD||1000),maxLeverage:1,maxDailyLossUsd:Number(process.env.KISA_MAX_DAILY_LOSS_USD||3),maxVenueDisagreementBps:Number(process.env.FUTURES_MAX_MARK_SPREAD_BPS||8)}),
+  authorityController:createAuthorityController({grant:capabilityGrant,subjectHash:state?.px?.modelSha256}),
   executor:createExecutor({shadow:shadowFn,paper:paperFn,microLive:microLiveFn}),
   settle:async({execution})=>({status:'PENDING_4H',execution_kind:execution.kind,settle_after:new Date(Date.now()+4*3600e3).toISOString()}),
   causalAudit:async({d0,decision,evidence,outcome})=>({decision_changed:JSON.stringify(d0)!==JSON.stringify(decision),measurement:evidence?.measurement??null,outcome_status:outcome.status})
