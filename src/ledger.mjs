@@ -34,3 +34,10 @@ export async function readSettledAuthorityOutcomes({subjectHash,limit=200}={}){
  const r=await p.query("SELECT payload FROM evidence_events WHERE event_type IN ('authority_outcome','challenger_settlement','prospective_settlement') ORDER BY observed_at DESC LIMIT $1",[limit]);
  return r.rows.map(x=>x.payload).filter(x=>x?.status==='SETTLED'&&(!subjectHash||x.subjectHash===subjectHash||x.artifactHash===subjectHash||x.model_sha256===subjectHash));
 }
+
+export async function readSelfEvolutionCorpus({limit=1000}={}){
+ const p=db();if(!p)return null;await initLedger();
+ const types=['agent_cycle','prospective_settlement','challenger_world','challenger_evaluation','authority_outcome','authority_health','rollback_attestation','boot_attestation'];
+ const r=await p.query('SELECT event_type,event_id,observed_at,payload FROM evidence_events WHERE event_type = ANY($1::text[]) ORDER BY observed_at ASC LIMIT $2',[types,limit]);
+ return r.rows.map(x=>({eventType:x.event_type,eventId:x.event_id,observedAt:x.observed_at,payload:x.payload}));
+}
