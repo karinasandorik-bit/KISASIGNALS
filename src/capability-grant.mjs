@@ -11,7 +11,8 @@ export function createCapabilityGrantFromPromotion(evaluation,{subjectHash,actio
   if(!evaluation?.evidenceRoot) throw Error('PROMOTION_EVIDENCE_ROOT_REQUIRED');
   if(!subjectHash) throw Error('PROMOTION_SUBJECT_REQUIRED');
   const issuedAt=now.toISOString(),expiresAt=new Date(now.getTime()+ttlHours*3600000).toISOString();
-  return createCapabilityGrant({subjectHash,action,modes,symbols,maxRiskUsd,maxNotionalUsd,maxLeverage,evidenceRoot:evaluation.evidenceRoot,issuedAt,expiresAt,rollbackTo});
+  const grant=createCapabilityGrant({subjectHash,action,modes,symbols,maxRiskUsd,maxNotionalUsd,maxLeverage,evidenceRoot:evaluation.evidenceRoot,issuedAt,expiresAt,rollbackTo});
+  return Object.freeze({...grant,proofBaseline:Object.freeze({meanIncrementalNetBps:evaluation.meanIncrementalNetBps,ciLowBps:evaluation.bootstrap95?.low,tailDelta95Bps:evaluation.tailDelta95Bps,n:evaluation.n,actionChanges:evaluation.actionChanges})});
 }
 
 export function createCapabilityGrant({
@@ -42,9 +43,10 @@ export function verifyCapabilityGrant(grant,{subjectHash,action='OPEN_POSITION',
   return Object.freeze(deny.length?{permitted:false,reasons:deny}:{permitted:true,grantId:grant.grantId,evidenceRoot:grant.evidenceRoot});
 }
 
-export function createAuthorityController({grant=null,subjectHash=null}={}){
+export function createAuthorityController({grant=null,subjectHash=null,revocation=null}={}){
   return Object.freeze({
     authorize(intent,{mode}={}){
+      if(revocation?.grantId===grant?.grantId) return Object.freeze({permitted:false,reasons:['GRANT_REVOKED'],revocationId:revocation.revocationId,reason:revocation.reason});
       if(!PRIVILEGED_MODES.includes(mode)) return Object.freeze({permitted:true,reason:'BASE_SHADOW_AUTHORITY'});
       return verifyCapabilityGrant(grant,{subjectHash:subjectHash??intent?.model_sha256,mode,intent});
     }
