@@ -11,7 +11,7 @@ test('generator freezes machine-originated candidate against exact corpus cutoff
  assert.equal(out.frozen.authority,'NONE');
  assert.equal(out.frozen.residual.evidenceCutoff,'2026-09-27T10:00:00Z');
  assert.deepEqual(out.frozen.residual.evidenceIds,['e1']);
- assert.equal(events[0].type,'self_evolve_generation');
+ assert.deepEqual(events.map(x=>x.type),['self_evolve_attempt','self_evolve_generation']);
 });
 
 test('generator may conclude NO_CANDIDATE rather than fabricate novelty',async()=>{
