@@ -23,3 +23,14 @@ export async function putEvidence(eventType,eventId,row){
 export async function hasEvidence(eventType,eventId){const p=db();if(!p)return false;await initLedger();const r=await p.query('SELECT 1 FROM evidence_events WHERE event_type=$1 AND event_id=$2 LIMIT 1',[eventType,eventId]);return r.rowCount>0}
 export async function readEvidence(eventType,{limit=100}={}){const p=db();if(!p)return null;await initLedger();const r=await p.query('SELECT payload FROM evidence_events WHERE event_type=$1 ORDER BY observed_at DESC LIMIT $2',[eventType,limit]);return r.rows.map(x=>x.payload)}
 export async function ledgerHealth(){const p=db();if(!p)return{backend:'jsonl',postgres:false};try{await initLedger();await p.query('SELECT 1');return{backend:'postgres+jsonl',postgres:true}}catch(e){return{backend:'jsonl-fallback',postgres:false,error:e.message}}}
+
+export async function readLatestEvidence(eventType,{match={},limit=500}={}){
+ const p=db();if(!p)return null;await initLedger();
+ const r=await p.query('SELECT payload FROM evidence_events WHERE event_type=$1 ORDER BY observed_at DESC LIMIT $2',[eventType,limit]);
+ return r.rows.map(x=>x.payload).find(row=>Object.entries(match).every(([k,v])=>row?.[k]===v))??null;
+}
+export async function readSettledAuthorityOutcomes({subjectHash,limit=200}={}){
+ const p=db();if(!p)return null;await initLedger();
+ const r=await p.query("SELECT payload FROM evidence_events WHERE event_type IN ('authority_outcome','challenger_settlement','prospective_settlement') ORDER BY observed_at DESC LIMIT $1",[limit]);
+ return r.rows.map(x=>x.payload).filter(x=>x?.status==='SETTLED'&&(!subjectHash||x.subjectHash===subjectHash||x.artifactHash===subjectHash||x.model_sha256===subjectHash));
+}
