@@ -46,7 +46,7 @@ export function verifyCapabilityGrant(grant,{subjectHash,action='OPEN_POSITION',
 export function createAuthorityController({grant=null,subjectHash=null,revocation=null}={}){
   return Object.freeze({
     authorize(intent,{mode}={}){
-      if(revocation?.grantId===grant?.grantId) return Object.freeze({permitted:false,reasons:['GRANT_REVOKED'],revocationId:revocation.revocationId,reason:revocation.reason});
+      if(revocation && revocation.grantId===grant?.grantId) return Object.freeze({permitted:false,reasons:['GRANT_REVOKED'],revocationId:revocation.revocationId,reason:revocation.reason});
       if(!PRIVILEGED_MODES.includes(mode)) return Object.freeze({permitted:true,reason:'BASE_SHADOW_AUTHORITY'});
       return verifyCapabilityGrant(grant,{subjectHash:subjectHash??intent?.model_sha256,mode,intent});
     }
