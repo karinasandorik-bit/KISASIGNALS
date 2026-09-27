@@ -38,7 +38,7 @@ export function createAuthorityController({grant=null,subjectHash=null}={}){
   return Object.freeze({
     authorize(intent,{mode}={}){
       if(!PRIVILEGED_MODES.includes(mode)) return Object.freeze({permitted:true,reason:'BASE_SHADOW_AUTHORITY'});
-      return verifyCapabilityGrant(grant,{subjectHash,mode,intent});
+      return verifyCapabilityGrant(grant,{subjectHash:subjectHash??intent?.model_sha256,mode,intent});
     }
   });
 }
