@@ -6,6 +6,14 @@ const sha256=x=>crypto.createHash('sha256').update(typeof x==='string'?x:canonic
 
 export const PRIVILEGED_MODES=Object.freeze(['PAPER','MICRO_LIVE']);
 
+export function createCapabilityGrantFromPromotion(evaluation,{subjectHash,action='OPEN_POSITION',modes=['PAPER'],symbols=['BTCUSDT'],maxRiskUsd=1,maxNotionalUsd=25,maxLeverage=1,ttlHours=168,rollbackTo=null,now=new Date()}={}){
+  if(!evaluation?.promote) throw Error('PROMOTION_NOT_PROVEN');
+  if(!evaluation?.evidenceRoot) throw Error('PROMOTION_EVIDENCE_ROOT_REQUIRED');
+  if(!subjectHash) throw Error('PROMOTION_SUBJECT_REQUIRED');
+  const issuedAt=now.toISOString(),expiresAt=new Date(now.getTime()+ttlHours*3600000).toISOString();
+  return createCapabilityGrant({subjectHash,action,modes,symbols,maxRiskUsd,maxNotionalUsd,maxLeverage,evidenceRoot:evaluation.evidenceRoot,issuedAt,expiresAt,rollbackTo});
+}
+
 export function createCapabilityGrant({
   subjectHash,action='OPEN_POSITION',modes=['PAPER'],symbols=['BTCUSDT'],
   maxRiskUsd=1,maxNotionalUsd=25,maxLeverage=1,evidenceRoot,issuedAt=new Date().toISOString(),
