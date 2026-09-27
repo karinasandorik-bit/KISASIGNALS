@@ -6,6 +6,7 @@ import {putEvidence} from './ledger.mjs';
 import {ProspectiveLedger,createRiskConstitution,createExecutor,runBoundedCycle} from './bounded-agent.mjs';
 import {createAuthorityController} from './capability-grant.mjs';
 import {resolveRuntimeAuthority} from './runtime-authority.mjs';
+import {attestBoot} from './boot-attestation.mjs';
 
 const bps=(a,b)=>b?Math.abs(a-b)/b*1e4:Infinity;
 const pgLedger=new ProspectiveLedger({append:async e=>{
@@ -20,10 +21,11 @@ function decisionFromPriceNet(px,consensus,referencePrice){
  if(!consensus?.verified) return {action:'ABSTAIN',reason:'FUTURES_CONSENSUS_BLOCK'};
  const r=riskEngine(d,Number(process.env.KISA_EQUITY_USD||1000),Number(process.env.KISA_RISK_FRACTION||.001));
  const stop=d.action==='LONG'?referencePrice*(1-r.slBps/10000):referencePrice*(1+r.slBps/10000);
- return {action:d.action,symbol:'BTCUSDT',risk_usd:+(r.sizeUsd*r.slBps/10000).toFixed(4),notional_usd:r.sizeUsd,leverage:1,stop,model_version:px.modelVersion,model_sha256:px.modelSha256,reason:d.reason};
+ return {action:d.action,symbol:'BTCUSDT',boot_attestation_id:null,risk_usd:+(r.sizeUsd*r.slBps/10000).toFixed(4),notional_usd:r.sizeUsd,leverage:1,stop,model_version:px.modelVersion,model_sha256:px.modelSha256,reason:d.reason};
 }
 
 export async function runIntegratedAgent({mode=process.env.KISA_EXECUTION_MODE||'SHADOW',marketFn=market,shadowFn=async i=>({kind:'shadow',accepted:true,intent:i}),paperFn=async i=>({kind:'paper',accepted:true,intent:i}),microLiveFn=async()=>{throw Error('MICRO_LIVE_ADAPTER_NOT_CONFIGURED')},capabilityGrant=null,authorityResolver=resolveRuntimeAuthority}={}){
+ const bootAttestation=await attestBoot({mode});
  let state,authorityState={available:mode==='SHADOW',grant:capabilityGrant,revocation:null};
  return runBoundedCycle({
   mode,ledger:pgLedger,
@@ -31,10 +33,11 @@ export async function runIntegratedAgent({mode=process.env.KISA_EXECUTION_MODE||
    const m=await marketFn(),consensus=await captureFuturesConsensus('BTCUSDT'),referencePrice=m.bars.at(-1).c;
    state={m,consensus,referencePrice,px:inferPriceNet(m.bars)};
    if(mode!=='SHADOW') authorityState=await authorityResolver({subjectHash:state.px.modelSha256,grant:capabilityGrant});
-   return {symbol:'BTCUSDT',received_at:m.received_at,referencePrice,model:{version:state.px.modelVersion,sha256:state.px.modelSha256},futures:{verified:consensus.verified,reason:consensus.reason,sources:consensus.sources},risk_context:{dailyLossUsd:0,venueDisagreementBps:consensus.markSpreadBps,evidenceAgeMs:Math.max(0,Date.now()-Date.parse(consensus.observedAt))}};
+   if(state.px.modelSha256!==bootAttestation.modelSha256||state.px.calibrationSha256!==bootAttestation.calibrationSha256) throw Error('RUNTIME_ARTIFACT_DRIFT_FROM_BOOT');
+   return {symbol:'BTCUSDT',received_at:m.received_at,referencePrice,boot_attestation_id:bootAttestation.bootAttestationId,deployment_id:bootAttestation.deploymentId,git_commit:bootAttestation.gitCommit,model:{version:state.px.modelVersion,sha256:state.px.modelSha256},calibration:{version:state.px.calibrationVersion,sha256:state.px.calibrationSha256},futures:{verified:consensus.verified,reason:consensus.reason,sources:consensus.sources},risk_context:{dailyLossUsd:0,venueDisagreementBps:consensus.markSpreadBps,evidenceAgeMs:Math.max(0,Date.now()-Date.parse(consensus.observedAt))}};
   },
   estimateUncertainty:async()=>({pricenet:state.px.uncertainty,ood:state.px.ood,venueAgreement:state.consensus.agreementScore}),
-  decide:async()=>decisionFromPriceNet(state.px,state.consensus,state.referencePrice),
+  decide:async()=>({...decisionFromPriceNet(state.px,state.consensus,state.referencePrice),boot_attestation_id:bootAttestation.bootAttestationId,git_commit:bootAttestation.gitCommit,calibration_sha256:bootAttestation.calibrationSha256}),
   proposeEvidence:async({decision})=>decision.action==='ABSTAIN'&&state.consensus.reason!=='CONSENSUS'?{measurement:'futures_consensus_refresh',predicted_effect:'may change ABSTAIN to trade only if independent venues converge'}:null,
   acquireEvidence:async()=>{const c=await captureFuturesConsensus('BTCUSDT');state.consensus=c;return {measurement:'futures_consensus_refresh',verified:c.verified,reason:c.reason,sources:c.sources}},
   riskConstitution:createRiskConstitution({allowedSymbols:['BTCUSDT'],maxRiskUsd:Number(process.env.KISA_MAX_RISK_USD||1),maxNotionalUsd:Number(process.env.KISA_MAX_NOTIONAL_USD||1000),maxLeverage:1,maxDailyLossUsd:Number(process.env.KISA_MAX_DAILY_LOSS_USD||3),maxVenueDisagreementBps:Number(process.env.FUTURES_MAX_MARK_SPREAD_BPS||8)}),
