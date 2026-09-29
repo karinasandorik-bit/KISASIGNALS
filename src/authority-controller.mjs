@@ -6,8 +6,9 @@ import {createCapabilityGrantFromPromotion} from './capability-grant.mjs';
 export function issueBoundedAuthority(evaluation,{artifactHash,decisionId=null,channel,symbols=['BTCUSDT'],horizonHours=4,regimes=[],maxRiskFraction=.001,ttlHours=168}={}){
  if(!evaluation?.promote)throw Error('PROMOTION_NOT_PROVEN');if(!artifactHash||!channel)throw Error('AUTHORITY_SCOPE_REQUIRED');
  const maxRiskUsd=Math.max(Number(evaluation.maxRiskUsd??1),0.000001);
- const grant=createCapabilityGrantFromPromotion(evaluation,{subjectHash:artifactHash,decisionId,action:'OPEN_POSITION',modes:['PAPER'],symbols,maxRiskUsd,maxNotionalUsd:Number(evaluation.maxNotionalUsd??25),maxLeverage:Number(evaluation.maxLeverage??1),ttlHours});
- return Object.freeze({...grant,legacyScope:Object.freeze({channel,horizonHours,regimes:[...regimes],maxRiskFraction}),realMoneyAuthority:false});
+ const normalizedEvaluation=evaluation.evidenceRoot?evaluation:{...evaluation,evidenceRoot:'legacy-promotion:'+artifactHash};
+ const grant=createCapabilityGrantFromPromotion(normalizedEvaluation,{subjectHash:artifactHash,decisionId,action:'OPEN_POSITION',modes:['PAPER'],symbols,maxRiskUsd,maxNotionalUsd:Number(evaluation.maxNotionalUsd??25),maxLeverage:Number(evaluation.maxLeverage??1),ttlHours});
+ return Object.freeze({...grant,licenseId:grant.grantId,status:'ACTIVE',scope:Object.freeze({artifactHash,channel,symbols:[...symbols],horizonHours,regimes:[...regimes],maxRiskFraction}),grantedAt:grant.issuedAt,baseline:grant.proofBaseline,legacyScope:Object.freeze({channel,horizonHours,regimes:[...regimes],maxRiskFraction}),realMoneyAuthority:false});
 }
 export function authorityHealth(grant,recent,{minN=20,maxMeanDropBps=15,maxTailDeteriorationBps=10}={}){
  if(!grant||grant.status!=='ACTIVE')return{valid:false,reason:'NO_ACTIVE_GRANT'};
