@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import{epistemicManifest,epistemicAuthority}from'../src/epistemic-control.mjs';
+const row={predictionId:'x',ts:'2026-09-29T12:00:00Z',decision:{action:'LONG'},plan:{stopLoss:99},market:{source:'coinbase',feature_timestamp:'2026-09-29T12:00:00Z',received_at:'2026-09-29T12:00:10Z'},model:{sha256:'m',calibration_sha256:'c'},futuresConsensus:{verified:true,sourceCount:3,sources:['a','b','c'],markSpreadBps:4}};
+test('admissible evidence earns epistemic authority',()=>{const m=epistemicManifest(row);assert.equal(m.epistemicStatus,'ADMISSIBLE');assert.equal(epistemicAuthority(m),true);assert.equal(m.falsifier.value,99)});
+test('single venue cannot authorize trade',()=>{const m=epistemicManifest({...row,futuresConsensus:{...row.futuresConsensus,sourceCount:1}});assert.equal(epistemicAuthority(m),false);assert.ok(m.blockers.includes('multiVenue'))});
+test('stale evidence cannot authorize trade',()=>{const m=epistemicManifest({...row,market:{...row.market,received_at:'2026-09-29T12:10:00Z'}});assert.equal(epistemicAuthority(m),false);assert.ok(m.blockers.includes('fresh'))});
+test('unfrozen calibration cannot authorize trade',()=>{const m=epistemicManifest({...row,model:{sha256:'m'}});assert.equal(epistemicAuthority(m),false);assert.ok(m.blockers.includes('calibrationFrozen'))});
+test('manifest is deterministic',()=>assert.equal(epistemicManifest(row).manifestHash,epistemicManifest(row).manifestHash));
