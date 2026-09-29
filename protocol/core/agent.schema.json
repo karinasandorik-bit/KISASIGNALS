@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kisa.dev/protocol/v0.1/core/agent.schema.json",
+  "title": "KISA Agent",
+  "type": "object",
+  "required": [
+    "kisaVersion",
+    "id",
+    "agentType"
+  ],
+  "properties": {
+    "kisaVersion": {
+      "const": "0.1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agentType": {
+      "enum": [
+        "HUMAN",
+        "MODEL",
+        "SOFTWARE",
+        "ORGANIZATION",
+        "SYSTEM"
+      ]
+    },
+    "version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "artifactDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}
