@@ -1,0 +1,25 @@
+name: KISA Protocol Conformance
+on:
+  pull_request:
+    paths:
+      - 'protocol/**'
+      - 'src/capability-grant.mjs'
+      - 'tests/capability-grant.test.mjs'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths: ['protocol/**']
+permissions:
+  contents: read
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npm run test:protocol
+      - run: node --test tests/capability-grant.test.mjs
