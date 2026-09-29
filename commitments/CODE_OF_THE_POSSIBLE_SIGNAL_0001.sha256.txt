@@ -1,0 +1,11 @@
+CODE OF THE POSSIBLE — SIGNAL 0001
+DETACHED SHA-256 COMMITMENT RECORD
+
+Canonical artifact: CODE_OF_THE_POSSIBLE_SIGNAL_0001.txt
+Encoding: UTF-8
+Byte length: 4064
+SHA-256: 6ed939265b3b304818fafb37c96500aed31d2f3e9e3d31dc067180e338fc32e8
+Timestamp (UTC): 2026-09-29T16:05:11Z
+
+This record commits to the exact bytes of the canonical artifact named above.
+Any byte-level modification produces a different SHA-256 digest.
