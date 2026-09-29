@@ -16,22 +16,23 @@ export function createCapabilityGrantFromPromotion(evaluation,{subjectHash,actio
 }
 
 export function createCapabilityGrant({
-  subjectHash,action='OPEN_POSITION',modes=['PAPER'],symbols=['BTCUSDT'],
+  subjectHash,decisionId=null,action='OPEN_POSITION',modes=['PAPER'],symbols=['BTCUSDT'],
   maxRiskUsd=1,maxNotionalUsd=25,maxLeverage=1,evidenceRoot,issuedAt=new Date().toISOString(),
   expiresAt,rollbackTo=null
 }={}){
   if(!subjectHash||!evidenceRoot||!expiresAt) throw Error('CAPABILITY_GRANT_FIELDS_REQUIRED');
-  const body={schema:'KISA_CAPABILITY_GRANT_V1',subjectHash,action,modes:[...modes],symbols:[...symbols],
+  const body={schema:'KISA_CAPABILITY_GRANT_V1',subjectHash,decisionId,action,modes:[...modes],symbols:[...symbols],
     limits:{maxRiskUsd,maxNotionalUsd,maxLeverage},evidenceRoot,issuedAt,expiresAt,rollbackTo,status:'ACTIVE'};
   return Object.freeze({...body,grantId:sha256(body).slice(0,32)});
 }
 
-export function verifyCapabilityGrant(grant,{subjectHash,action='OPEN_POSITION',mode,intent,now=Date.now()}={}){
+export function verifyCapabilityGrant(grant,{subjectHash,decisionId=null,action='OPEN_POSITION',mode,intent,now=Date.now()}={}){
   const deny=[];
   if(!grant) deny.push('GRANT_MISSING');
   else {
     if(grant.status!=='ACTIVE') deny.push('GRANT_NOT_ACTIVE');
     if(grant.subjectHash!==subjectHash) deny.push('SUBJECT_MISMATCH');
+    if(grant.decisionId&&grant.decisionId!==decisionId) deny.push('DECISION_MISMATCH');
     if(grant.action!==action) deny.push('ACTION_NOT_GRANTED');
     if(!grant.modes?.includes(mode)) deny.push('MODE_NOT_GRANTED');
     if(!grant.symbols?.includes(intent?.symbol)) deny.push('SYMBOL_NOT_GRANTED');
@@ -48,7 +49,7 @@ export function createAuthorityController({grant=null,subjectHash=null,revocatio
     authorize(intent,{mode}={}){
       if(revocation && revocation.grantId===grant?.grantId) return Object.freeze({permitted:false,reasons:['GRANT_REVOKED'],revocationId:revocation.revocationId,reason:revocation.reason});
       if(!PRIVILEGED_MODES.includes(mode)) return Object.freeze({permitted:true,reason:'BASE_SHADOW_AUTHORITY'});
-      return verifyCapabilityGrant(grant,{subjectHash:subjectHash??intent?.model_sha256,mode,intent});
+      return verifyCapabilityGrant(grant,{subjectHash:subjectHash??intent?.model_sha256,decisionId:intent?.decisionId??intent?.predictionId??null,mode,intent});
     }
   });
 }
