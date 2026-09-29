@@ -1,0 +1,6 @@
+import test from'node:test';import assert from'node:assert/strict';import{rankOpportunities,marketOpportunityDecision}from'../src/opportunity-engine.mjs';
+const a=(symbol,action,q,s,c=.4)=>({symbol,action,decisionQuality:q,candidateStrength:s,sensors:{coverage:c}});
+test('ranks strongest eligible market candidate',()=>{const d=marketOpportunityDecision([a('ETHUSDT','LONG_CANDIDATE',70,30),a('SOLUSDT','SHORT_CANDIDATE',82,50)]);assert.equal(d.symbol,'SOLUSDT');assert.equal(d.direction,'SHORT');assert.equal(d.tradeAuthority,'NONE_UNTIL_CALIBRATED_ASSET_MODEL')});
+test('scanner cannot turn heuristic candidate into trade',()=>{const d=marketOpportunityDecision([a('ETHUSDT','LONG_CANDIDATE',90,80)]);assert.equal(d.action,'RESEARCH_CANDIDATE');assert.notEqual(d.action,'LONG')});
+test('insufficient evidence yields global no trade',()=>{const d=marketOpportunityDecision([a('ETHUSDT','LONG_CANDIDATE',90,80,.1)]);assert.equal(d.action,'NO_TRADE')});
+test('ranking is market-wide not BTC privileged',()=>{const r=rankOpportunities([a('BTCUSDT','WATCH',90,90),a('XRPUSDT','SHORT_CANDIDATE',70,30)]);assert.equal(r[0].symbol,'XRPUSDT')});
