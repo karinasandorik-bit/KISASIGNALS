@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {readLedger,appendLedger,hasEvidence,putEvidence} from './ledger.mjs';
+import {recordLineage} from './lineage.mjs';
 const bps=(x,entry)=>((x/entry)-1)*10000;
 export async function settleEligible({predictions='data/prospective.jsonl',settlements='data/settlements.jsonl',bars,now=new Date().toISOString()}){
  if(!Array.isArray(bars)||!bars.length)return[];
@@ -19,7 +20,7 @@ export async function settleEligible({predictions='data/prospective.jsonl',settl
   for(const b of future){const hitTP=long?b.h>=p.plan.takeProfit:b.l<=p.plan.takeProfit,hitSL=long?b.l<=p.plan.stopLoss:b.h>=p.plan.stopLoss;if(hitTP&&hitSL){firstTouch='AMBIGUOUS';ambiguous=true;break}if(hitTP){firstTouch='TP';break}if(hitSL){firstTouch='SL';break}}
   const terminal=(last/entry-1)*10000*(long?1:-1),net=terminal-(p.decision.costBps||0);
   const s={event:'PROSPECTIVE_4H_SETTLEMENT',predictionId:p.predictionId,signalAt:p.market.feature_timestamp||p.ts,settledAt:now,side:p.decision.action,entry,stopLoss:p.plan.stopLoss,takeProfit:p.plan.takeProfit,firstTouch,ambiguous,realizedMfeBps:+mfe.toFixed(2),realizedMaeBps:+mae.toFixed(2),terminalReturnBps:+terminal.toFixed(2),netTerminalBps:+net.toFixed(2),source:p.market.source,horizonHours:4};
-  fs.mkdirSync(path.dirname(settlements),{recursive:true});appendLedger(settlements,s);try{await putEvidence('settlement',p.predictionId,s)}catch(e){console.error(JSON.stringify({event:'POSTGRES_SETTLEMENT_WRITE_FAILED',error:e.message}))}out.push(s);console.log(JSON.stringify(s));
+  fs.mkdirSync(path.dirname(settlements),{recursive:true});appendLedger(settlements,s);try{await putEvidence('settlement',p.predictionId,s);s.lineageHash=await recordLineage('settlement',p.predictionId,s,{parentHashes:p.lineageHash?[p.lineageHash]:[]})}catch(e){console.error(JSON.stringify({event:'POSTGRES_SETTLEMENT_WRITE_FAILED',error:e.message}))}out.push(s);console.log(JSON.stringify(s));
  }
  return out;
 }
