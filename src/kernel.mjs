@@ -1,8 +1,12 @@
 import crypto from 'node:crypto';
+import {provenanceAwareForecast,evidenceAttribution} from './provenance-metagate.mjs';
 export const VERSION='KISASIGNALS-v2.1.0';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const validExc=x=>x&&[x.mfe50,x.mae50,x.mae90].every(Number.isFinite)&&Math.min(x.mfe50,x.mae50,x.mae90)>=0&&x.mae50<=x.mae90;
-export function metaGate(f,cfg={}){
+export function metaGate(f,cfg={},evidence=null){
+ const epistemic=evidence?provenanceAwareForecast(f,evidence,cfg):null;
+ if(epistemic?.blocked)return {action:'NO_TRADE',reason:epistemic.blockReason,evBps:null,tailRiskBps:null,costBps:null,evidenceTrust:epistemic.profile.trust,evidenceProfile:epistemic.profile,evidenceAttribution:evidenceAttribution(evidence)};
+ if(epistemic)f=epistemic.forecast;
  if(![f.pUp,f.pDown,f.pRange].every(Number.isFinite)||[f.pUp,f.pDown,f.pRange].some(p=>p<0||p>1)||Math.abs(f.pUp+f.pDown+f.pRange-1)>1e-8)
    return {action:'NO_TRADE',reason:'INVALID_PROBABILITIES',evBps:null,tailRiskBps:null,costBps:null};
  const L=f.LONG||f.long||(validExc(f)?f:null),S=f.SHORT||f.short||(validExc(f)?f:null);
@@ -14,15 +18,15 @@ export function metaGate(f,cfg={}){
  const sl=clamp(best.tail,25,150),tp=clamp(Math.max(sl*minRR,best.exc.mfe50),40,300),rr=tp/sl;
  const action=(best.ev>tau&&best.tail<=riskCap&&rr>=minRR)?best.side:'NO_TRADE';
  const reason=action==='NO_TRADE'?(best.ev<=tau?'EV_BELOW_THRESHOLD':best.tail>riskCap?'TAIL_RISK_TOO_HIGH':'RR_BELOW_THRESHOLD'):'META_GATE_PASS';
- return {action,reason,preferredSide:best.side,evBps:+best.ev.toFixed(3),tailRiskBps:+best.tail.toFixed(2),costBps:cost,rr:+rr.toFixed(3),excursion:best.exc};
+ return {action,reason,preferredSide:best.side,evBps:+best.ev.toFixed(3),tailRiskBps:+best.tail.toFixed(2),costBps:cost,rr:+rr.toFixed(3),excursion:best.exc,...(epistemic?{evidenceTrust:epistemic.profile.trust,evidenceProfile:epistemic.profile,evidenceAttribution:evidenceAttribution(evidence)}:{})};
 }
 export function riskEngine(decision,equity=1000,riskFraction=.005){
  if(decision.action==='NO_TRADE')return{sizeUsd:0,slBps:null,tpBps:null,rr:null};
  const sl=clamp(decision.tailRiskBps,25,150),tp=clamp(Math.max(sl*1.25,decision.excursion?.mfe50||0),40,300);
  return{sizeUsd:+((equity*riskFraction)/(sl/10000)).toFixed(2),slBps:+sl.toFixed(2),tpBps:+tp.toFixed(2),rr:+(tp/sl).toFixed(3)};
 }
-export function makePrediction({ts,modelVersion,features,forecast,cfg,equity}){
- const featuresHash=crypto.createHash('sha256').update(JSON.stringify(features)).digest('hex'),decision=metaGate(forecast,cfg),risk=riskEngine(decision,equity);
+export function makePrediction({ts,modelVersion,features,forecast,cfg,equity,evidence}){
+ const featuresHash=crypto.createHash('sha256').update(JSON.stringify(features)).digest('hex'),decision=metaGate(forecast,cfg,evidence),risk=riskEngine(decision,equity);
  const predictionId=crypto.createHash('sha256').update(`${ts}|${modelVersion}|${featuresHash}`).digest('hex').slice(0,20);
  return{predictionId,ts,modelVersion,featuresHash,forecast,decision,risk};
 }
