@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KISA Evidence Profile",
+  "type": "object",
+  "required": [
+    "id",
+    "observedAt",
+    "source",
+    "contentDigest",
+    "epistemicStatus",
+    "validityStatus",
+    "independenceGroup"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "identity"
+      ],
+      "properties": {
+        "identity": {
+          "type": "string"
+        },
+        "canonicalRoot": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "contentDigest": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "value"
+      ]
+    },
+    "epistemicStatus": {
+      "enum": [
+        "OBSERVED",
+        "DERIVED",
+        "HYPOTHESIS",
+        "PROPOSED",
+        "UNKNOWN",
+        "NOT_EXECUTED"
+      ]
+    },
+    "validityStatus": {
+      "enum": [
+        "CLEAN",
+        "TAINTED",
+        "INVALIDATED"
+      ]
+    },
+    "independenceGroup": {
+      "type": "string",
+      "minLength": 1
+    },
+    "acquisitionActivityId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "claimRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

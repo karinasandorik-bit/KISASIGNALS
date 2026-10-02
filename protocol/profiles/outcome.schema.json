@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KISA Outcome Profile",
+  "type": "object",
+  "required": [
+    "id",
+    "decisionId",
+    "observedAt",
+    "metricSpecDigest",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "decisionId": {
+      "type": "string"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metricSpecDigest": {
+      "type": "string"
+    },
+    "worldEvidenceIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "score": {
+      "type": [
+        "number",
+        "object",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "OBSERVED",
+        "SETTLED",
+        "AMBIGUOUS",
+        "CONTAMINATED",
+        "INVALID"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

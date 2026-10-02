@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kisa.dev/protocol/v0.1/core/relation.schema.json",
+  "title": "KISA Relation",
+  "type": "object",
+  "required": [
+    "type",
+    "from",
+    "to"
+  ],
+  "properties": {
+    "type": {
+      "enum": [
+        "USED",
+        "GENERATED",
+        "ASSOCIATED_WITH",
+        "DERIVED_FROM",
+        "SUPPORTED_BY",
+        "CONTRADICTED_BY",
+        "AUTHORIZED_BY",
+        "EVALUATED_BY",
+        "INVALIDATED_BY"
+      ]
+    },
+    "from": {
+      "type": "string",
+      "minLength": 1
+    },
+    "to": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

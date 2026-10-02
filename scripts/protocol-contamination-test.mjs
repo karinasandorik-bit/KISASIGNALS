@@ -1,0 +1,28 @@
+import crypto from 'node:crypto';
+import {ledgerHealth,putEvidence} from '../src/ledger.mjs';
+import {initLineage,recordLineage,invalidateAndTaint,readLineageByIds,lineageSchemaState} from '../src/lineage.mjs';
+import {createCapabilityGrant} from '../src/capability-grant.mjs';
+
+const id=crypto.randomUUID().slice(0,8), now=new Date();
+const evidenceId='CONTAM_E_'+id,decisionId='CONTAM_D_'+id,grantEventId='CONTAM_G_'+id,outcomeId='CONTAM_O_'+id;
+const health=await ledgerHealth(); if(!health.postgres) throw Error('REAL_POSTGRES_REQUIRED:'+JSON.stringify(health));
+await initLineage();
+const evidence={id:evidenceId,kind:'CONTAMINATION_TEST_EVIDENCE',observedAt:now.toISOString(),clean:true};
+await putEvidence('protocol_contamination_evidence',evidenceId,evidence);
+const eHash=await recordLineage('Evidence',evidenceId,evidence);
+const decision={id:decisionId,frozenAt:new Date(now.getTime()+1000).toISOString(),input:[evidenceId],action:'NO_TRADE'};
+await putEvidence('protocol_contamination_decision',decisionId,decision);
+const dHash=await recordLineage('Decision',decisionId,decision,{parentHashes:[eHash]});
+const grant=createCapabilityGrant({subjectHash:'contamination-test-subject',decisionId,evidenceRoot:eHash,modes:['PAPER'],symbols:['BTCUSDT'],expiresAt:new Date(now.getTime()+3600000).toISOString()});
+await putEvidence('protocol_contamination_grant',grantEventId,{...grant,eventId:grantEventId});
+const gHash=await recordLineage('CapabilityGrant',grantEventId,grant,{parentHashes:[dHash]});
+const outcome={id:outcomeId,decisionId,observedAt:new Date(now.getTime()+4000).toISOString(),status:'SETTLED',testOnly:true};
+await putEvidence('protocol_contamination_outcome',outcomeId,outcome);
+const oHash=await recordLineage('Outcome',outcomeId,outcome,{parentHashes:[dHash,gHash]});
+const before=await readLineageByIds([evidenceId,decisionId,grantEventId,outcomeId]);
+if(before.length!==4||before.some(x=>x.status!=='CLEAN')) throw Error('PRECONDITION_NOT_CLEAN:'+JSON.stringify(before));
+const invalidation=await invalidateAndTaint({eventHash:eHash,reason:'KISA_PROTOCOL_REAL_CONTAMINATION_TEST'});
+const after=await readLineageByIds([evidenceId,decisionId,grantEventId,outcomeId]);
+if(after.length!==4||after.some(x=>x.status!=='TAINTED')) throw Error('TAINT_PROPAGATION_FAILED:'+JSON.stringify(after));
+console.log(JSON.stringify({executed:true,backend:health,schema:await lineageSchemaState(),ids:{evidenceId,decisionId,grantEventId,outcomeId},hashes:{eHash,dHash,gHash,oHash},before:before.map(x=>({id:x.event_id,status:x.status})),after:after.map(x=>({id:x.event_id,status:x.status,taintRoot:x.taint_root})),invalidation},null,2));
+process.exit(0);
