@@ -4,7 +4,7 @@ export function runDeskAgents({px,consensus,futuresState,context,marketOpportuni
  const fs=futuresState?.ok?futuresState.state:null;
  const trend=(px.pUp??0)-(px.pDown??0);
  const micro=fs?clamp((fs.depthImbalance??0)*.55+(fs.flowImbalance??0)*.45):0;
- const deriv=fs?clamp((fs.openInterestChangePct??0)/4-(fs.fundingRate??0)*1500):0;
+ const deriv=fs?clamp((fs.deltaOiPct??0)/4-(fs.fundingRate??0)*1500):0;
  const regime=clamp(trend*(1-(px.pRange??0)));
  const cross=clamp((consensus?.agreementScore??0)*trend);
  const opportunity=marketOpportunity?.symbol==='BTCUSDT'?clamp((marketOpportunity.direction==='LONG'?1:-1)*(marketOpportunity.score??0)/100):0;
