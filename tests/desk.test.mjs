@@ -1,6 +1,9 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {runDeskAgents} from '../src/desk-agents.mjs';import {aggregateDesk} from '../src/desk.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {runDeskAgents} from '../src/desk-agents.mjs';import {aggregateDesk,executionModel,deskAblations} from '../src/desk.mjs';
 const base={px:{pUp:.7,pDown:.15,pRange:.15,ood:.1},consensus:{verified:true,agreementScore:.95},futuresState:{ok:true,state:{depthImbalance:.5,flowImbalance:.4,openInterestChangePct:1,fundingRate:.0001}},marketOpportunity:{symbol:'BTCUSDT',direction:'LONG',score:70}};
 test('desk emits eight bounded specialist opinions',()=>{const x=runDeskAgents(base);assert.equal(x.length,8);assert.ok(x.every(o=>Math.abs(o.score)<=1));assert.equal(x.find(o=>o.agent==='PRICENET').vote,'LONG')});
 test('skeptic reacts to numeric OOD',()=>{const x=runDeskAgents({...base,px:{...base.px,ood:.9}});const s=x.find(o=>o.agent==='SKEPTIC');assert.equal(s.vote,'SHORT');assert.ok(s.confidence>=.9)});
 
 test('quality and cross-venue duplicate trend cannot manufacture alpha',()=>{const opinions=[{agent:'PRICENET',vote:'ABSTAIN',confidence:0},{agent:'MICROSTRUCTURE',vote:'ABSTAIN',confidence:0},{agent:'DERIVATIVES',vote:'ABSTAIN',confidence:0},{agent:'OPPORTUNITY',vote:'ABSTAIN',confidence:0},{agent:'CROSS_VENUE',vote:'LONG',confidence:1},{agent:'EVIDENCE_QUALITY',vote:'LONG',confidence:1},{agent:'REGIME',vote:'LONG',confidence:1},{agent:'SKEPTIC',vote:'ABSTAIN',confidence:0}];assert.equal(aggregateDesk(opinions,{consensus:{verified:true}}).action,'NO_TRADE')});
+
+test('execution model charges spread impact and fee',()=>{const x=executionModel({action:'LONG',referencePrice:100000,futuresState:{ok:true,state:{spreadBps:2,depthImbalance:.5,flowImbalance:.5}}});assert.ok(x.costBps>5);assert.ok(x.expectedFill>100000)});
+test('desk freezes one removal counterfactual per alpha family',()=>{const opinions=runDeskAgents(base);const a=deskAblations(opinions,{verified:true});assert.deepEqual(a.map(x=>x.removedAgent),['PRICENET','MICROSTRUCTURE','DERIVATIVES','OPPORTUNITY'])});
