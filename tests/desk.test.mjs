@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {runDeskAgents} from '../src/desk-agents.mjs';
+const base={px:{pUp:.7,pDown:.15,pRange:.15,ood:.1},consensus:{verified:true,agreementScore:.95},futuresState:{ok:true,state:{depthImbalance:.5,flowImbalance:.4,openInterestChangePct:1,fundingRate:.0001}},marketOpportunity:{symbol:'BTCUSDT',direction:'LONG',score:70}};
+test('desk emits eight bounded specialist opinions',()=>{const x=runDeskAgents(base);assert.equal(x.length,8);assert.ok(x.every(o=>Math.abs(o.score)<=1));assert.equal(x.find(o=>o.agent==='PRICENET').vote,'LONG')});
+test('skeptic reacts to numeric OOD',()=>{const x=runDeskAgents({...base,px:{...base.px,ood:.9}});const s=x.find(o=>o.agent==='SKEPTIC');assert.equal(s.vote,'SHORT');assert.ok(s.confidence>=.9)});
