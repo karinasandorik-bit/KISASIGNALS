@@ -13,15 +13,18 @@ import {putEvidence} from './ledger.mjs';
 import {ingestCollectorSnapshot} from './collector-ingest.mjs';
 import {signalProductView,openEntries,evidenceStats} from './product-view.mjs';
 import {runIntegratedAgent} from './agent-runtime.mjs';
+import {inferPriceNet} from './pricenet.mjs';
+import {captureFuturesConsensus} from './futures-recorder.mjs';
+import {runDesk} from './desk.mjs';
 import {generateFirstCandidate} from './self-evolve-generator.mjs';
 import {calibrationSnapshot,kisaEdge} from './prospective-intelligence.mjs';
 import {loadPriceNet} from './pricenet.mjs';
 import {marketOpportunityDecision} from './opportunity-engine.mjs';
 const PORT=Number(process.env.PORT||3000),LEDGER=process.env.LEDGER_PATH||'data/prospective.jsonl',SETTLEMENTS=process.env.SETTLEMENT_PATH||'data/settlements.jsonl',REFRESH_MS=Math.max(60_000,Number(process.env.REFRESH_MS||300_000)),clients=new Set();
-let latest=null,marketOpportunity={action:'NO_TRADE',reason:'NOT_SCANNED'},lastError=null,running=false,selfEvolveAttempted=false,dbHealth={backend:'initializing',postgres:false},dbRows=null,dbSettlements=null,dbTrials=[],dbTrialSettlements=[],providerHealth=[],futuresState=null,universe=[],context=null,previousUniverse=new Map(),externalEvidence={},decisionUniverse=[],candles=[];
+let latest=null,desk=null,marketOpportunity={action:'NO_TRADE',reason:'NOT_SCANNED'},lastError=null,running=false,selfEvolveAttempted=false,dbHealth={backend:'initializing',postgres:false},dbRows=null,dbSettlements=null,dbTrials=[],dbTrialSettlements=[],providerHealth=[],futuresState=null,universe=[],context=null,previousUniverse=new Map(),externalEvidence={},decisionUniverse=[],candles=[];
 function read(path,n=100){try{return fs.readFileSync(path,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse).slice(-n).reverse()}catch{return[]}}
 function product(){const rows=dbRows??read(LEDGER),settlements=dbSettlements??read(SETTLEMENTS),byPrediction=new Map(settlements.map(x=>{const s=x.payload||x;return [s.predictionId,s]})),calibration=calibrationSnapshot(rows,settlements);const view=x=>{const r=x.payload||x,id=r.predictionId||r.prediction_id||r.decision_id||r.id;return {...signalProductView(r,futuresState,byPrediction.get(id)||null,candles),kisaEdge:kisaEdge(r,calibration)}};const signals=rows.map(view);return {signals,openEntries:signals.filter(x=>['WAITING','IN_ENTRY','ACTIVE'].includes(x.status)&&x.action!=='NO_TRADE'),statistics:evidenceStats({rows,settlements,trials:dbTrials,trialSettlements:dbTrialSettlements}),calibration}}
-function payload(){return JSON.stringify({latest,rows:dbRows??read(LEDGER),settlements:dbSettlements??read(SETTLEMENTS),trials:dbTrials,trialSettlements:dbTrialSettlements,product:product(),providerHealth,persistence:dbHealth,futuresState,universe:decisionUniverse.length?decisionUniverse:universe,marketOpportunity,candles,context,externalEvidence,lastError,server_time:new Date().toISOString(),refresh_ms:REFRESH_MS})}
+function payload(){return JSON.stringify({latest,desk,rows:dbRows??read(LEDGER),settlements:dbSettlements??read(SETTLEMENTS),trials:dbTrials,trialSettlements:dbTrialSettlements,product:product(),providerHealth,persistence:dbHealth,futuresState,universe:decisionUniverse.length?decisionUniverse:universe,marketOpportunity,candles,context,externalEvidence,lastError,server_time:new Date().toISOString(),refresh_ms:REFRESH_MS})}
 function broadcast(){const d='data: '+payload()+'\n\n';for(const r of clients)r.write(d)}
 function pushSignal(event){const d='event: actionable_signal\ndata: '+JSON.stringify(event)+'\n\n';for(const r of clients)r.write(d)}
 async function refreshEvidence(){dbHealth=await ledgerHealth();if(dbHealth.postgres){dbRows=await readEvidence('prediction');dbSettlements=await readEvidence('settlement');dbTrials=await readEvidence('ablation_trial',{limit:500});dbTrialSettlements=await readEvidence('ablation_settlement',{limit:500});providerHealth=await readEvidence('provider_health',{limit:50})}else{dbRows=dbSettlements=null;dbTrials=[];dbTrialSettlements=[];providerHealth=[]}}
@@ -39,6 +42,7 @@ if(futuresState.ok){
  console.error(JSON.stringify({event:'FUTURES_STATE_FAILED',observed_at:futuresState.observedAt,error:futuresState.error}));
 }
 const agentCycle=await runIntegratedAgent({marketFn:async()=>m});console.log(JSON.stringify({event:'SHADOW_AGENT_CYCLE',status:agentCycle.status,mode:agentCycle.mode,run_id:agentCycle.runId}));
+const deskConsensus=await captureFuturesConsensus('BTCUSDT'); const deskPx=inferPriceNet(m.bars); desk=await runDesk({px:deskPx,consensus:deskConsensus,futuresState,context,marketOpportunity,referencePrice:m.bars.at(-1).c,observedAt:m.received_at}); console.log(JSON.stringify({event:'KISA_DESK_DECISION',id:desk.desk_decision_id,action:desk.action,edge:desk.edge,reason:desk.reason,mode:desk.execution_mode}));
 await refreshEvidence();
 if(!selfEvolveAttempted){
  selfEvolveAttempted=true;
