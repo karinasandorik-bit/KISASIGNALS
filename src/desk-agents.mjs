@@ -8,7 +8,7 @@ export function runDeskAgents({px,consensus,futuresState,context,marketOpportuni
  const regime=clamp(trend*(1-(px.pRange??0)));
  const cross=clamp((consensus?.agreementScore??0)*trend);
  const opportunity=marketOpportunity?.symbol==='BTCUSDT'?clamp((marketOpportunity.direction==='LONG'?1:-1)*(marketOpportunity.score??0)/100):0;
- const skeptic=clamp(-Math.sign(trend||1)*Math.max(px.ood?.score??0,consensus?.verified?0:.8));
+ const skeptic=clamp(-Math.sign(trend||1)*Math.max(typeof px.ood==='number'?px.ood:(px.ood?.score??0),consensus?.verified?0:.8));
  const quality=consensus?.verified?clamp(trend):0;
  return [
   opinion('PRICENET',trend,['pricenet'],'frozen directional posterior'),
