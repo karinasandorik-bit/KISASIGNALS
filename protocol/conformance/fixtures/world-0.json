@@ -1,0 +1,11 @@
+{
+  "consumer": "WORLD-0",
+  "mapping": {
+    "Evidence": "Observation + inbox + physics_hash",
+    "Decision": "DECISION ledger event/prediction",
+    "Outcome": "truth/reward and aggregate preregistered estimand",
+    "Lineage": "run_id + tick + agent_id + arm + physics_hash",
+    "Agent": "deterministic agent_id"
+  },
+  "frozenExperimentPolicy": "adapter-only; do not mutate TRIAL-0 preregistration"
+}

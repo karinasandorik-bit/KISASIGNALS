@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KISA CapabilityGrant Profile",
+  "type": "object",
+  "required": [
+    "id",
+    "decisionId",
+    "subjectId",
+    "action",
+    "scope",
+    "issuedAt",
+    "expiresAt",
+    "status",
+    "evidenceRoot"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "decisionId": {
+      "type": "string"
+    },
+    "subjectId": {
+      "type": "string"
+    },
+    "action": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "object"
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "EXPIRED",
+        "REVOKED",
+        "INVALIDATED",
+        "TAINTED"
+      ]
+    },
+    "evidenceRoot": {
+      "type": "string"
+    },
+    "revocation": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

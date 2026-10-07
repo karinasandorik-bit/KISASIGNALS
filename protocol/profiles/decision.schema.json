@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KISA Decision Profile",
+  "type": "object",
+  "required": [
+    "id",
+    "frozenAt",
+    "agentId",
+    "inputEntityIds",
+    "inputRootDigest",
+    "action",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "frozenAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "inputEntityIds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "inputRootDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "action": {
+      "type": "object"
+    },
+    "status": {
+      "enum": [
+        "FROZEN",
+        "ABSTAIN",
+        "SUPERSEDED",
+        "INVALIDATED",
+        "TAINTED"
+      ]
+    },
+    "policyDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

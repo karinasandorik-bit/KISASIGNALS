@@ -1,0 +1,15 @@
+{
+  "consumer": "KISASIGNALS",
+  "mapping": {
+    "Evidence": "evidence_events + provenanceEnvelope",
+    "Decision": "prospective prediction/decision frozen before future bars",
+    "CapabilityGrant": "src/capability-grant.mjs",
+    "Outcome": "PROSPECTIVE_4H_SETTLEMENT",
+    "Lineage": "src/lineage.mjs"
+  },
+  "knownGap": [
+    "existing CapabilityGrant lacks decisionId and requires adapter binding",
+    "authority-controller license overlaps CapabilityGrant and should converge later",
+    "stable JSON helper is transitional, not RFC8785-complete"
+  ]
+}
