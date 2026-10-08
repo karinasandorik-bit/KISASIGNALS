@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {settlementPolicyForAsset,extractClosedSwapPath,SETTLEMENT_POLICY} from '../src/ablation-price-path.mjs';
+const asset={source:'okx-swap-public',symbol:'SANDUSDT'};
+const at='2026-10-08T00:20:00.000Z';
+const policy=settlementPolicyForAsset(asset,at);
+const trial={...policy,symbol:'SANDUSDT',horizonHours:4};
+const H=3600000;
+const row=(i,confirm='1')=>[String(Date.parse(policy.entryAt)+i*H),'1','1.2','0.8','1.1','0','0','0',confirm];
+test('next full-hour entry and four-hour horizon',()=>{assert.equal(policy.entryAt,'2026-10-08T01:00:00.000Z');assert.equal(policy.horizonEndAt,'2026-10-08T05:00:00.000Z');assert.equal(policy.settlementPolicy,SETTLEMENT_POLICY)});
+test('reject spot/non-OKX asset',()=>assert.equal(settlementPolicyForAsset({source:'spot',symbol:'SANDUSDT'},at),null));
+test('reject before four-hour close',()=>assert.equal(extractClosedSwapPath([0,1,2,3].map(i=>row(i)),trial,'2026-10-08T04:59:59Z'),null));
+test('accept exactly four confirmed bars',()=>{const p=extractClosedSwapPath([0,1,2,3].map(i=>row(i)),trial,'2026-10-08T05:00:00Z');assert.equal(p.bars.length,4);assert.equal(p.entryPrice,1)});
+test('reject missing or unconfirmed candle',()=>{assert.equal(extractClosedSwapPath([row(0),row(1),row(2),row(3,'0')],trial,'2026-10-08T05:00:00Z'),null);assert.equal(extractClosedSwapPath([row(0),row(1),row(3)],trial,'2026-10-08T05:00:00Z'),null)});
+test('reject wrong instrument and venue',()=>{assert.equal(extractClosedSwapPath([0,1,2,3].map(i=>row(i)),{...trial,instrumentId:'BTC-USDT-SWAP'},'2026-10-08T05:00:00Z'),null);assert.equal(extractClosedSwapPath([0,1,2,3].map(i=>row(i)),{...trial,priceSource:'spot'},'2026-10-08T05:00:00Z'),null)});
