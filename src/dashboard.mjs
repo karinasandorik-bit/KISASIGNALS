@@ -21,6 +21,7 @@ import {generateFirstCandidate} from './self-evolve-generator.mjs';
 import {calibrationSnapshot,kisaEdge} from './prospective-intelligence.mjs';
 import {loadPriceNet} from './pricenet.mjs';
 import {marketOpportunityDecision} from './opportunity-engine.mjs';
+import {flushSignals} from './signal-delivery-outbox.mjs';
 const PORT=Number(process.env.PORT||3000),LEDGER=process.env.LEDGER_PATH||'data/prospective.jsonl',SETTLEMENTS=process.env.SETTLEMENT_PATH||'data/settlements.jsonl',REFRESH_MS=Math.max(60_000,Number(process.env.REFRESH_MS||300_000)),clients=new Set();
 let latest=null,desk=null,realtime={status:'STARTING',tick:null},marketOpportunity={action:'NO_TRADE',reason:'NOT_SCANNED'},lastError=null,running=false,selfEvolveAttempted=false,dbHealth={backend:'initializing',postgres:false},dbRows=null,dbSettlements=null,dbTrials=[],dbTrialSettlements=[],providerHealth=[],futuresState=null,universe=[],context=null,previousUniverse=new Map(),externalEvidence={},decisionUniverse=[],candles=[];
 function read(path,n=100){try{return fs.readFileSync(path,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse).slice(-n).reverse()}catch{return[]}}
@@ -45,6 +46,7 @@ if(futuresState.ok){
 const agentCycle=await runIntegratedAgent({marketFn:async()=>m});console.log(JSON.stringify({event:'SHADOW_AGENT_CYCLE',status:agentCycle.status,mode:agentCycle.mode,run_id:agentCycle.runId}));
 const deskConsensus=await captureFuturesConsensus('BTCUSDT'); const deskPx=inferPriceNet(m.bars); desk=await runDesk({px:deskPx,consensus:deskConsensus,futuresState,context,marketOpportunity,referencePrice:m.bars.at(-1).c,observedAt:m.received_at}); console.log(JSON.stringify({event:'KISA_DESK_DECISION',id:desk.desk_decision_id,action:desk.action,edge:desk.edge,reason:desk.reason,mode:desk.execution_mode}));
 await refreshEvidence();
+try{const delivery=await flushSignals();console.log(JSON.stringify({event:'SIGNAL_DELIVERY_CYCLE',...delivery}));}catch(error){console.error(JSON.stringify({event:'SIGNAL_DELIVERY_ERROR',error:error.message}))}
 if(!selfEvolveAttempted){
  selfEvolveAttempted=true;
  try{
