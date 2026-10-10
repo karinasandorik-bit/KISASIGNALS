@@ -22,6 +22,7 @@ export async function enqueueSignal(event){
 export async function flushSignals({fetchFn=fetch,now=new Date(),limit=10}={}){
  const webhook=process.env.KISA_SIGNAL_WEBHOOK_URL;
  if(!webhook) return {status:'NOT_CONFIGURED',delivered:0};
+ if(!process.env.KISA_SIGNAL_WEBHOOK_SECRET) return {status:'MISSING_WEBHOOK_SECRET',delivered:0};
  if(!process.env.DATABASE_URL) return {status:'NO_DATABASE',delivered:0};
  await ensureOutbox();let delivered=0,failed=0;
  for(let i=0;i<limit;i++){
@@ -33,7 +34,7 @@ export async function flushSignals({fetchFn=fetch,now=new Date(),limit=10}={}){
   if(!r.rowCount)break;
   const job=r.rows[0];
   try{
-   const response=await fetchFn(webhook,{method:'POST',headers:{'content-type':'application/json','idempotency-key':job.decision_id},body:JSON.stringify(job.payload),signal:AbortSignal.timeout(8000)});
+   const response=await fetchFn(webhook,{method:'POST',headers:{'content-type':'application/json','idempotency-key':job.decision_id,'authorization':'Bearer '+process.env.KISA_SIGNAL_WEBHOOK_SECRET},body:JSON.stringify(job.payload),signal:AbortSignal.timeout(8000)});
    if(!response.ok)throw Error('HTTP_'+response.status);
    await pool.query("UPDATE signal_delivery_outbox SET state='DELIVERED',delivered_at=now(),lease_until=NULL,last_error=NULL WHERE decision_id=$1",[job.decision_id]);delivered++;
   }catch(e){
