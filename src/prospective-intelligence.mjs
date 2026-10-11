@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {buildVerifiedEmailContract} from './trade-contract-verifier.mjs';
 
 const finite=x=>Number.isFinite(Number(x));
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
@@ -7,6 +8,7 @@ const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex')
 export function signalContract(row){
   if(!row?.predictionId) throw Error('SIGNAL_CONTRACT_REQUIRES_PREDICTION_ID');
   const action=row.decision?.action??'NO_TRADE';
+  const verified=buildVerifiedEmailContract(row);
   const contract={
     schema:'kisa.signal-contract.v1',
     decisionId:row.predictionId,
@@ -17,11 +19,12 @@ export function signalContract(row){
     entry:row.plan?.entry??null,
     stopLoss:row.plan?.stopLoss??null,
     takeProfit:row.plan?.takeProfit??null,
-    takeProfit2:row.plan?.takeProfit2??null,
-    expiresAt:row.plan?.expiresAt??null,
-    netRR:row.plan?.netRR??null,
-    riskFraction:row.plan?.riskFraction??null,
-    independentValidation:row.plan?.independentValidation===true,
+    takeProfit2:verified.takeProfit2??null,
+    expiresAt:verified.expiresAt??null,
+    netRR:verified.netRR??null,
+    riskFraction:verified.riskFraction??null,
+    independentValidation:verified.independentValidation===true,
+    validation:verified.validation,
     probabilities:{up:row.forecast?.pUp??null,down:row.forecast?.pDown??null,range:row.forecast?.pRange??null},
     forecastExcursions:row.excursion?.distribution??null,
     expectedValueBps:row.decision?.evBps??null,
