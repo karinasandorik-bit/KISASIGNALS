@@ -1,0 +1,57 @@
+name: OWL independent restore drill
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  restore-proof:
+    if: ${{ vars.OWL_RESTORE_DRILL_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: restore_only
+          POSTGRES_DB: owl_restore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d owl_restore"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      S3_ENDPOINT: ${{ secrets.OWL_BACKUP_S3_ENDPOINT }}
+      S3_BUCKET: ${{ secrets.OWL_BACKUP_S3_BUCKET }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.OWL_BACKUP_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.OWL_BACKUP_SECRET_ACCESS_KEY }}
+      BACKUP_PASSPHRASE: ${{ secrets.OWL_BACKUP_PASSPHRASE }}
+      BACKUP_OBJECT_KEY: ${{ vars.OWL_RESTORE_OBJECT_KEY }}
+      AWS_DEFAULT_REGION: auto
+    steps:
+      - name: Install client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common awscli
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+      - name: Restore and verify encrypted backup
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          for v in S3_ENDPOINT S3_BUCKET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY BACKUP_PASSPHRASE BACKUP_OBJECT_KEY; do
+            test -n "${!v:-}" || { echo "Missing backup setting: $v"; exit 2; }
+          done
+          mkdir -p "$RUNNER_TEMP/owl-restore"
+          cd "$RUNNER_TEMP/owl-restore"
+          aws --endpoint-url "$S3_ENDPOINT" s3 cp "s3://$S3_BUCKET/$BACKUP_OBJECT_KEY" dump.enc --no-progress
+          aws --endpoint-url "$S3_ENDPOINT" s3 cp "s3://$S3_BUCKET/$BACKUP_OBJECT_KEY.sha256" sha256.expected --no-progress
+          test "$(sha256sum dump.enc | cut -d' ' -f1)" = "$(cat sha256.expected)" || { echo "Encrypted digest mismatch"; exit 3; }
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 -in dump.enc -out restore.dump -pass env:BACKUP_PASSPHRASE
+          pg_restore --list restore.dump > /dev/null
+          PGPASSWORD=restore_only pg_restore --host=127.0.0.1 --username=postgres --dbname=owl_restore --no-owner --no-acl --exit-on-error restore.dump
+          PGPASSWORD=restore_only psql --host=127.0.0.1 --username=postgres --dbname=owl_restore -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" > restored_table_count
+          echo "RESTORE_COMPLETED encrypted_sha256=$(cat sha256.expected) public_tables=$(cat restored_table_count)"
+          test "$(cat restored_table_count)" -gt 0
+          # No export of confidential data into build artifacts.
