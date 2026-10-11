@@ -1,8 +1,9 @@
 import {putEvidence} from './ledger.mjs';
-import {deliverGmailSignal} from './gmail-signal-dispatcher.mjs';
+import {persistDecisionAndQueue,drainEmailOutbox,requireDatabase} from './precision-outbox.mjs';
 import {buildVerifiedEmailContract} from './trade-contract-verifier.mjs';
 export async function pushActionableSignal(row,{emit}={}){
  if(row?.status!=='SHADOW_SIGNAL_ARMED'||!['LONG','SHORT'].includes(row?.decision?.action)||!row.plan)return {pushed:false,reason:'NOT_ACTIONABLE'};
+ requireDatabase();
  const event={event:'ACTIONABLE_SIGNAL',decisionId:row.predictionId,symbol:row.market?.symbol,side:row.decision.action,horizonHours:row.plan.horizonHours,entry:row.plan.entry,stopLoss:row.plan.stopLoss,takeProfit:row.plan.takeProfit,evBps:row.plan.evBps,rr:row.plan.rr,calibrationStatus:row.model?.calibration_status,evidenceTimestamp:row.market?.feature_timestamp||row.market?.observed_at,emittedAt:new Date().toISOString()};
  await putEvidence('actionable_signal_push',row.predictionId,event);
  if(emit)await emit(event);
@@ -15,7 +16,8 @@ export async function pushActionableSignal(row,{emit}={}){
    verifier:emailSignal.validation.verifier
  });
 
- const email=await deliverGmailSignal(emailSignal).catch(e=>({status:'ERROR',errorCode:e.code||'DISPATCH_FAILED'}));
+ const queued=await persistDecisionAndQueue(row,emailSignal);
+ const email=queued.status==='REJECTED'?queued:(process.env.OWL_EMAIL_ENABLED==='true'?await drainEmailOutbox({limit:5}):queued);
  console.log(JSON.stringify({event:'EMAIL_DISPATCH_RESULT',decisionId:row.predictionId,status:email.status,errorCode:email.errorCode||null,gateErrors:email.errors||[]}));
  // Email is primary. Optional webhooks must never block or cancel its delivery.
  let webhook={status:'DISABLED'};
