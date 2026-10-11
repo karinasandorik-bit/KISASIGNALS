@@ -1,0 +1,41 @@
+name: OWL independent signal runner
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+permissions:
+  contents: read
+concurrency:
+  group: owl-signal-single-writer
+  cancel-in-progress: false
+jobs:
+  shadow-signal:
+    # Do not activate until Railway database is restored outside Railway
+    # and a single-writer lease / source-of-truth is confirmed.
+    if: ${{ vars.OWL_INDEPENDENT_RUNNER_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.OWL_INDEPENDENT_DATABASE_URL }}
+      OWL_EMAIL_ENABLED: ${{ vars.OWL_EMAIL_ENABLED }}
+      OWL_GMAIL_USER: ${{ secrets.OWL_GMAIL_USER }}
+      OWL_GMAIL_APP_PASSWORD: ${{ secrets.OWL_GMAIL_APP_PASSWORD }}
+      OWL_SIGNAL_RECIPIENT: ${{ secrets.OWL_SIGNAL_RECIPIENT }}
+      KISA_EXECUTION_MODE: SHADOW_ONLY
+      KISA_MICRO_LIVE_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Fail closed without independent persistence
+        shell: bash
+        run: |
+          test -n "$DATABASE_URL" || { echo "Independent DATABASE_URL not configured"; exit 2; }
+          test "$KISA_EXECUTION_MODE" = "SHADOW_ONLY"
+          test "$KISA_MICRO_LIVE_ENABLED" = "false"
+      - name: Install pinned dependency tree
+        run: npm ci
+      - name: Run one prospective shadow cycle
+        run: npm run live
