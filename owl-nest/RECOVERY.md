@@ -44,3 +44,6 @@ pg_restore --dbname="\$RESTORE_DATABASE_URL" --no-owner --no-acl --exit-on-error
 - Vercel: account exists, project creation returned authorization 403 on 2026-10-11; public deployment unverified.
 
 Do not claim disaster-recovery readiness before all acceptance checks are satisfied.
+
+## Safer Railway access discovered (2026-10-11)
+Railway documents `railway connect postgres --tunnel-only` (SSH tunneling) when public TCP Proxy is absent: https://docs.railway.com/cli/connect . On an independently authenticated CLI runner, establish the SSH tunnel and use the printed local connection details with PostgreSQL 18 `pg_dump`. This avoids publishing the database port or redeploying PostgreSQL. Requires validated CLI login/authorization and secure handling of transient connection credentials. Tunnel itself is not a backup: encrypted external upload and independent restore proof remain mandatory.
