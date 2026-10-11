@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - name: Verify repository tests
         run: npm test
       - name: Require external PostgreSQL (never JSONL fallback)
