@@ -2,7 +2,8 @@ import {Pool} from 'pg';
 import crypto from 'node:crypto';
 import {validateEmailSignal} from './email-signal-gate.mjs';
 
-const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const canonical=x=>JSON.stringify(x,(_key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))):value);
+const sha=x=>crypto.createHash('sha256').update(canonical(x)).digest('hex');
 export function requireDatabase(env=process.env) {
   if (!env.DATABASE_URL) throw Error('POSTGRES_REQUIRED');
 }
