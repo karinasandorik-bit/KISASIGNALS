@@ -1,0 +1,35 @@
+name: OWL PostgreSQL rescue
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+permissions:
+  contents: read
+concurrency:
+  group: owl-postgres-rescue
+  cancel-in-progress: false
+jobs:
+  encrypted-backup:
+    if: ${{ vars.OWL_BACKUP_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client 18 and AWS CLI
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common awscli
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+      - name: Encrypted remote backup
+        env:
+          DATABASE_URL: ${{ secrets.OWL_RAILWAY_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.OWL_BACKUP_PASSPHRASE }}
+          S3_BUCKET: ${{ secrets.OWL_BACKUP_S3_BUCKET }}
+          S3_ENDPOINT: ${{ secrets.OWL_BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.OWL_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OWL_BACKUP_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: bash ops/backup/backup-postgres.sh
