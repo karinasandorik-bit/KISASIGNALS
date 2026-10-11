@@ -1,0 +1,49 @@
+name: OWL off-Railway shadow (guarded)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: owl-shadow-production
+  cancel-in-progress: false
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      DATABASE_URL: ${{ secrets.OWL_DATABASE_URL }}
+      GMAIL_USER: ${{ secrets.OWL_GMAIL_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.OWL_GMAIL_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify repository tests
+        run: npm test
+      - name: Require external PostgreSQL (never JSONL fallback)
+        run: |
+          node --input-type=module -e '
+          import { ledgerHealth } from "./src/ledger.mjs";
+          if (!process.env.DATABASE_URL) throw Error("Missing OWL_DATABASE_URL");
+          const health = await ledgerHealth();
+          if (!health.postgres) throw Error("Postgres unreachable; refusing to run: " + JSON.stringify(health));
+          console.log("POSTGRES_PREFLIGHT_OK");
+          process.exit(0);
+          '
+      - name: Execute shadow inference only
+        run: |
+          node --input-type=module -e '
+          import { runLive } from "./src/live.mjs";
+          import { hasEvidence } from "./src/ledger.mjs";
+          const row = await runLive();
+          if (!row?.predictionId) throw Error("Missing decision ID");
+          const id = String(row.market?.feature_timestamp) + ":" + String(row.model?.calibration_version);
+          if (!await hasEvidence("prediction",id)) throw Error("DB receipt missing; job failed closed");
+          console.log(JSON.stringify({event:"EXTERNAL_PREDICTION_CONFIRMED",decision_id:row.predictionId,status:row.status,action:row.decision?.action}));
+          process.exit(0);
+          '
+# Schedule intentionally disabled until independent production restore, data parity,
+# verified transactional email outbox, and email provider receipt are proven.
