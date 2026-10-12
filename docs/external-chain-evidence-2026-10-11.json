@@ -1,0 +1,21 @@
+{
+  "schema": "owl.external-chain-evidence.v1",
+  "market_snapshot_id": "MARKET-1791738369116-11789354889920",
+  "source": "Binance USDT-M futures",
+  "symbol": "BTCUSDT",
+  "mark_price": "83769.37628986",
+  "index_price": "83800.25782609",
+  "mark_source_time": 1791738369000,
+  "bid": "83761.70",
+  "ask": "83761.80",
+  "quote_source_time": 1791738369116,
+  "last_update_id": 11789354889920,
+  "decision_id": "OWL-20261011-BTCUSDT-1791738369116-11789354889920",
+  "decision": "NO_TRADE",
+  "reason": "Independent cross-venue data, model calibration and execution contract not validated",
+  "email_provider_id": null,
+  "email_status": "BLOCKED_BY_SAFETY_CHECKS",
+  "settlement_id": null,
+  "settlement_status": "NOT_APPLICABLE_NO_TRADE",
+  "external_chain_complete": false
+}

@@ -1,0 +1,18 @@
+{
+  "schema": "owl.shadow.v1",
+  "market_snapshot_id": "BNF-BTCUSDT-1791738581390-11789374556779",
+  "decision_id": "OWL-PROSPECTIVE-1791738581390",
+  "created_at": "2026-10-11T17:09:41.390Z",
+  "expiry_at": "2026-10-11T21:09:41.390Z",
+  "symbol": "BTCUSDT",
+  "action": "LONG",
+  "reference_entry": 83770.3,
+  "stop": 83435.22,
+  "target": 84272.92,
+  "status": "SHADOW_RESEARCH_ONLY",
+  "fill_status": "UNFILLED_REFERENCE_SCENARIO",
+  "strategy": "fixed_15m_momentum_v1_unvalidated",
+  "settlement_id": null,
+  "origin": "manual prospective freeze based on live Binance data",
+  "note": "Only the closed candle sequence before creation used; this is not an order or entry fill."
+}
