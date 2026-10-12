@@ -29,3 +29,10 @@ test('permissions fail closed',async()=>{
 test('market timeout is TICK_FAILED not liveness failure',()=>{
  assert.deepEqual(tickFailure(Object.assign(Error('market timeout'),{code:'ETIMEDOUT'}),'market',{now:()=> '2026-10-12T00:00:00Z'}),{event:'TICK_FAILED',at:'2026-10-12T00:00:00Z',stage:'market',code:'ETIMEDOUT'});
 });
+
+test('TICK_FAILED strips sensitive exception text',()=>{
+ const e=Error('token=secret-password from external provider timeout');
+ const out=tickFailure(e,'market',{now:()=> '2026-10-12T00:00:00Z'});
+ assert.equal(out.code,'DEPENDENCY_TIMEOUT');
+ assert.ok(!JSON.stringify(out).includes('secret-password'));
+});
