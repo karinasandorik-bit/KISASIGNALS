@@ -10,6 +10,8 @@ export async function atomicFreeze(row,{connectionString=process.env.DATABASE_UR
  try{
   await client.query('BEGIN');
   const commitment=hash(row);
+  if(Date.parse(row.market?.received_at||row.ts||row.timestamp)>Date.now()+5000)throw Error('FUTURE_PREDICTION_TIMESTAMP');
+  await client.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[id]);
   const existing=await client.query('select commitment from owl_internal.predictions where id=$1',[id]);
   if(existing.rowCount&&existing.rows[0].commitment!==commitment)throw Error('IMMUTABLE_CONFLICT');
   if(!existing.rowCount){
