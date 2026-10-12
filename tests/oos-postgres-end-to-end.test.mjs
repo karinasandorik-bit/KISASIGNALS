@@ -33,6 +33,7 @@ test('real PostgreSQL: immutable prediction → signed independent_world → rea
  const snapshot=await read();assert.equal(snapshot.predictions.length,1);assert.equal(snapshot.worlds.length,1);assert.equal(snapshot.baselines.length,1);
  const costs={feeEntryBps:4,feeExitBps:4,spreadBps:2,slippageEntryBps:3,slippageExitBps:3,fundingBps:1};
  const report=await runOosEvaluation({read,priceCosts:costs});
- assert.equal(report.nFrozen,1);assert.equal(report.nMatched,1);
- assert.equal(report.candidate.nTrades,1);assert.equal(report.promotionEligible,false);
+ assert.equal(report.nFrozen,1);assert.equal(report.nMatched,0);
+ assert.equal(report.excluded[0].reason,'NO_TRUSTED_PROSPECTIVE_FREEZE');
+ assert.equal(report.promotionEligible,false);
 });
