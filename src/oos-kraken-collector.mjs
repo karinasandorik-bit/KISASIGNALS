@@ -5,7 +5,7 @@ import {writeFileSync} from 'node:fs';
 const H=3600000;
 export async function krakenWorldReceipt({predictionId,signalAt,symbol='BTCUSDT',predictionSource,secret=process.env.OOS_COLLECTOR_SECRET,fetchImpl=fetch,now=Date.now()}){
  if(!secret)throw Error('COLLECTOR_SECRET_REQUIRED');
- if(!predictionId||symbol!=='BTCUSDT'||predictionSource==='Kraken')throw Error('INDEPENDENT_SOURCE_OR_SYMBOL_UNSUPPORTED');
+ if(!predictionId||symbol!=='BTCUSDT'||String(predictionSource||'').toLowerCase().includes('kraken'))throw Error('INDEPENDENT_SOURCE_OR_SYMBOL_UNSUPPORTED');
  const t=Date.parse(signalAt);
  if(!Number.isFinite(t)||t%H!==0||now<t+4*H+60000)throw Error('HORIZON_NOT_MATURE');
  // Kraken reports OHLC candle OPEN seconds. Last potentially in-progress candle is excluded.
