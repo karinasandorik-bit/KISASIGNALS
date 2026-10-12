@@ -15,5 +15,5 @@ test('detect pairing swaps',()=>{
 test('no fabricated world means no scores and no promotion',async()=>{
  const r=await runOosEvaluation({priceCosts:{feeEntryBps:1,feeExitBps:1,spreadBps:1,slippageEntryBps:1,slippageExitBps:1},
  read:async()=>({predictions:[{id:'a',payload:{}}],worlds:[],baselines:[],snapshotHash:'test',readAt:t(0)})});
- assert.equal(r.nMatched,0);assert.equal(r.promotionEligible,false);assert.equal(r.excluded[0].reason,'WORLD_MISSING');
+ assert.equal(r.nMatched,0);assert.equal(r.promotionEligible,false);assert.equal(r.excluded[0].reason,'NO_TRUSTED_PROSPECTIVE_FREEZE');
 });
