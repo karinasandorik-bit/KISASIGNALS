@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {auditShadowCycle} from '../src/shadow-cycle-runner.mjs';
+test('audit retains blocked predictions and emits digest',()=>{const p={predictionId:'a',ts:'2026-10-01T00:00:00Z',market:{reference_close:100,feature_timestamp:'2026-10-01T00:00:00Z'},decision:{action:'NO_TRADE',blockedAction:'SHORT'}};const x=auditShadowCycle({predictions:[p],bars:[]});assert.equal(x.predictions,1);assert.equal(x.blocked,1);assert.equal(x.settled,0);assert.match(x.hash,/^[a-f0-9]{64}$/);});
