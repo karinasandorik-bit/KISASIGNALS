@@ -1,5 +1,6 @@
 import {validateEmailSignal} from './email-signal-gate.mjs';
 import {Pool} from 'pg';
+import {assessEmailTrackRecord} from './email-track-record-gate.mjs';
 // SMTP credentials must be supplied only via Railway secret variables.
 // A send timeout after provider acceptance is UNKNOWN, never automatically retried.
 export async function deliverGmailSignal(signal,{env=process.env, now=Date.now(), transport}={}) {
@@ -9,6 +10,18 @@ export async function deliverGmailSignal(signal,{env=process.env, now=Date.now()
   if(!env.DATABASE_URL||!env.OWL_GMAIL_USER||!env.OWL_GMAIL_APP_PASSWORD||!env.OWL_SIGNAL_RECIPIENT) return {status:'CONFIG_MISSING'};
   const pool=new Pool({connectionString:env.DATABASE_URL,max:2});
   try {
+    // Fail closed: no email is claimed or transmitted before real, independently
+    // settled prospective track-record evidence supports the model.
+    let trackRecord;
+    try {
+      const q=await pool.query(`SELECT payload FROM evidence_events
+        WHERE event_type='email_track_record'
+        ORDER BY observed_at DESC LIMIT 1000`);
+      trackRecord=assessEmailTrackRecord(q.rows.map(x=>x.payload));
+    } catch(e) {
+      return {status:'QUALITY_GATE_UNAVAILABLE',errorCode:'EVIDENCE_QUERY_FAILED'};
+    }
+    if(!trackRecord.eligible) return {status:'QUALITY_GATE_REJECTED',reason:trackRecord.reason,n:trackRecord.n};
     await pool.query(`CREATE TABLE IF NOT EXISTS owl_email_outbox (
       decision_id text PRIMARY KEY, status text NOT NULL,
       recipient text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
