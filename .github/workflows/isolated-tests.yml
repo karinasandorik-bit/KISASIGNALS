@@ -31,6 +31,8 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm install
+      - name: Bootstrap disposable PostgreSQL schema
+        run: node scripts/bootstrap-ci-db.mjs
       - name: Test against disposable PostgreSQL
         run: npm test
       - name: Verify production image builds without DATABASE_URL
