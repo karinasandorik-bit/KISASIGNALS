@@ -29,12 +29,11 @@ export function assessTrainingExample(d,s,{expectedModel='owl-ema-v1'}={}) {
 export function auditTrainingBatch(decisions,settlements,options){
  const byId=new Map(),duplicate=new Set();
  for(const s of settlements){if(byId.has(s.decision_id))duplicate.add(s.decision_id);byId.set(s.decision_id,s);}
- const seen=new Set();
+ const countsByDecision=new Map(); for(const d of decisions)countsByDecision.set(d.decision_id,(countsByDecision.get(d.decision_id)??0)+1);
  const results=decisions.map(d=>{
   const r=assessTrainingExample(d,byId.get(d.decision_id),options);
   if(duplicate.has(d.decision_id))r.reasons.push('DUPLICATE_SETTLEMENT');
-  if(seen.has(d.decision_id))r.reasons.push('DUPLICATE_DECISION');
-  seen.add(d.decision_id);
+  if(countsByDecision.get(d.decision_id)>1)r.reasons.push('DUPLICATE_DECISION');
   return {decision_id:d.decision_id,eligible:r.reasons.length===0,reasons:r.reasons};
  });
  const reasons={};for(const r of results)for(const code of r.reasons)reasons[code]=(reasons[code]??0)+1;
