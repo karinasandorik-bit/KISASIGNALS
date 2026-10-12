@@ -10,12 +10,15 @@ export async function atomicFreeze(row,{connectionString=process.env.DATABASE_UR
  try{
   await client.query('BEGIN');
   const commitment=hash(row);
+  const baseline={...row,model:{...row.model,sha256:'BASELINE_ALWAYS_LONG_V1',calibration_sha256:'NOT_APPLICABLE'},decision:{action:'LONG'},plan:{side:'LONG',entry:row.market?.reference_close,stopLoss:row.market?.reference_close*0.98,takeProfit:row.market?.reference_close*1.03},frozenAt:row.market?.feature_timestamp||row.ts};
+  if(!Number.isFinite(baseline.plan.entry)||baseline.plan.entry<=0)throw Error('BASELINE_REFERENCE_PRICE_REQUIRED');
   if(Date.parse(row.market?.received_at||row.ts||row.timestamp)>Date.now()+5000)throw Error('FUTURE_PREDICTION_TIMESTAMP');
   await client.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[id]);
   const existing=await client.query('select commitment from owl_internal.predictions where id=$1',[id]);
   if(existing.rowCount&&existing.rows[0].commitment!==commitment)throw Error('IMMUTABLE_CONFLICT');
   if(!existing.rowCount){
    await client.query('insert into owl_internal.predictions(id,commitment,payload,target_at) values($1,$2,$3,$4)',[id,commitment,JSON.stringify(row),target]);
+   await client.query("insert into public.evidence_events(event_type,event_id,observed_at,payload) values('oos_frozen_baseline',$1,clock_timestamp(),$2::jsonb) on conflict(event_type,event_id) do nothing",[id,JSON.stringify(baseline)]);
    await client.query('insert into owl_internal.outbox(prediction_id) values($1)',[id]);
   }
   await client.query('COMMIT');
