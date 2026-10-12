@@ -1,0 +1,13 @@
+# Do not ship tests, local state or secrets into production images.
+.git
+.github
+tests
+node_modules
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+data
+coverage
+*.log
