@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {createHash, verify as verifySignature} from 'node:crypto';
 const sha = x=>createHash('sha256').update(x).digest('hex');
 export function canonical(value) {
  if(value===null||typeof value!=='object') {
@@ -26,7 +26,7 @@ export function independentlyRecalculatePnL({side,entryPrice,exitPrice,feeBps,sl
  return {verified:Math.abs(computed-reportedNetPct)<=tolerance,computedNetPct:computed,reportedNetPct,deltaPct:computed-reportedNetPct};
 }
 // Approval requires external attestations bound to immutable hashes; not self-asserted labels.
-export function approveDataset({rows=[],heldoutIds=[],featureManifestHash,independentVerifierReceipt,expectedRowsHash}={}) {
+export function approveDataset({rows=[],heldoutIds=[],featureManifestHash,independentVerifierReceipt,expectedRowsHash,trustedVerifierPublicKey=process.env.OWL_TRUSTED_VERIFIER_PUBKEY}={}) {
  const reasons=[];
  if(!Array.isArray(rows)||rows.length===0)reasons.push('EMPTY_TRAINING_DATA');
  if(!Array.isArray(heldoutIds)||heldoutIds.length===0)reasons.push('NO_HIDDEN_HOLDOUT');
@@ -37,7 +37,12 @@ export function approveDataset({rows=[],heldoutIds=[],featureManifestHash,indepe
  if(rows.some(r=>!r?.evidenceVerified||!r?.pnlVerified||!r?.labelEligible))reasons.push('ROW_NOT_VERIFIED');
  if(rows.some(r=>heldoutIds.includes(r.decision_id)))reasons.push('HOLDOUT_CONTAMINATION');
  // Receipt must originate from an independently configured verifier, not merely a Boolean.
- if(!independentVerifierReceipt?.verified||independentVerifierReceipt.rowsHash!==rowsHash||independentVerifierReceipt.featureManifestHash!==featureManifestHash||independentVerifierReceipt.hiddenHoldoutDigest!==sha(canonical(heldoutIds)))reasons.push('INDEPENDENT_RECEIPT_MISSING_OR_MISMATCHED');
+ const claims={rowsHash,featureManifestHash,hiddenHoldoutDigest:sha(canonical(heldoutIds))};
+ const receipt=independentVerifierReceipt;
+ if(!receipt||receipt.rowsHash!==claims.rowsHash||receipt.featureManifestHash!==claims.featureManifestHash||receipt.hiddenHoldoutDigest!==claims.hiddenHoldoutDigest)reasons.push('INDEPENDENT_RECEIPT_MISSING_OR_MISMATCHED');
+ let signatureOK=false;
+ try{if(typeof trustedVerifierPublicKey==='string'&&receipt?.signature&&receipt?.signatureAlgorithm==='ed25519')signatureOK=verifySignature(null,Buffer.from(canonical(claims)),trustedVerifierPublicKey,Buffer.from(receipt.signature,'base64'));}catch{}
+ if(!signatureOK)reasons.push('INDEPENDENT_SIGNATURE_INVALID_OR_UNTRUSTED');
  return {approved:reasons.length===0,reasons,rowsHash};
 }
 export function datasetDigest(rows){return sha(canonical(rows));}
