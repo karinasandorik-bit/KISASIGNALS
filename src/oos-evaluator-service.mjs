@@ -11,11 +11,15 @@ export async function runOosEvaluation({read=readOosLedger,priceCosts=costs(),mi
  const candidate=[],control=[],exclusions=[];
  for(const frozen of snapshot.predictions){
   const id=frozen.id,p=frozen.payload,w=world.get(id),b=baseline.get(id);
+  const dbFrozen=Date.parse(frozen.frozenAt);
+  const signal=Date.parse(p.market?.feature_timestamp??p.ts);
+  if(!Number.isFinite(dbFrozen)||!Number.isFinite(signal)||dbFrozen<signal||dbFrozen>signal+300000){exclusions.push({id,reason:'NO_TRUSTED_PROSPECTIVE_FREEZE'});continue}
+  if(dbFrozen>=Date.parse(w?.observedAt??w?.settledAt??'')){exclusions.push({id,reason:'FREEZE_AFTER_OUTCOME'});continue}
   if(!w||!b){exclusions.push({id,reason:!w?'WORLD_MISSING':'BASELINE_MISSING'});continue}
   try{
-   if(b.predictionId!==id||b.frozenAt!==(p.frozenAt??p.market?.feature_timestamp??p.ts))throw Error('BASELINE_NOT_PAIRED_PRECOMMITTED');
-   const c=evaluateOne(p,w,priceCosts);
-   const a=evaluateOne(b,w,priceCosts);
+   if(b.predictionId!==id||b.frozenAt!==(p.market?.feature_timestamp??p.ts))throw Error('BASELINE_NOT_PAIRED_PRECOMMITTED');
+   const c=evaluateOne({...p,frozenAt:new Date(dbFrozen).toISOString()},w,priceCosts);
+   const a=evaluateOne({...b,frozenAt:new Date(dbFrozen).toISOString()},w,priceCosts);
    const signalAt=p.market?.feature_timestamp??p.ts;
    candidate.push({...c,signalAt});control.push({...a,signalAt});
   }catch(e){exclusions.push({id,reason:e.message})}
