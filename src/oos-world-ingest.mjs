@@ -28,9 +28,9 @@ export async function ingestIndependentWorld({raw,signature,secret=process.env.O
   if((p.market?.symbol??'BTCUSDT')!==w.symbol)throw Error('SYMBOL_MISMATCH');
   if(p.market?.source===w.independentSource)throw Error('SOURCE_NOT_INDEPENDENT');
   const evidence={...w,receiptSha256:hash(raw),authentication:'HMAC_VERIFIED',provenanceStatus:'CLAIMED_NEEDS_SOURCE_AUDIT'};
-  const ins=await c.query("insert into public.evidence_events(event_type,event_id,observed_at,payload) values('oos_independent_world',$1,$2,$3::jsonb) on conflict(event_type,event_id) do nothing returning event_id",[w.predictionId,w.observedAt,JSON.stringify(evidence)]);
-  if(!ins.rowCount){const old=await c.query("select payload from public.evidence_events where event_type='oos_independent_world' and event_id=$1",[w.predictionId]);if(old.rows[0]?.payload?.receiptSha256!==evidence.receiptSha256)throw Error('IMMUTABLE_WORLD_CONFLICT')}
-  await c.query('COMMIT');return {id:w.predictionId,inserted:!!ins.rowCount,receiptSha256:evidence.receiptSha256};
+  const ins=await c.query('SELECT public.oos_insert_world($1,$2,$3::jsonb) AS inserted',[w.predictionId,w.observedAt,JSON.stringify(evidence)]);
+  const inserted=ins.rows[0].inserted;
+  await c.query('COMMIT');return {id:w.predictionId,inserted,receiptSha256:evidence.receiptSha256};
  }catch(e){await c.query('ROLLBACK');throw e}finally{await c.end()}
 }
 if(import.meta.url===`file://${process.argv[1]}`){
