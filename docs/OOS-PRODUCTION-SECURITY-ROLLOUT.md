@@ -1,0 +1,12 @@
+# PriceNet production rollout gate — 2026-10-12
+
+**Status: NOT DEPLOYED.** These migrations are in a draft PR; CI has an isolated database. Never use the dashboard's privileged DATABASE_URL for externally hosted GitHub Actions.
+
+1. In Railway's PostgreSQL console as database owner, audit existing schema, backups and any staged changes. Apply `sql/oos-server-freeze-time.sql`, then `sql/oos-collector-role.sql`. The server timestamp is **INSERT time**, not COMMIT time. Legacy records intentionally remain NULL and must not count as prospectively frozen.
+2. Provision distinct login credentials for `oos_collector` and `oos_reader` using a secrets manager or Railway console. Grant collector only prediction/evidence read and EXECUTE on `oos_insert_world`; evaluator only SELECT on required tables. Use `ALTER ROLE ... PASSWORD` outside CI/code. Auditors must check inherited PUBLIC privileges and function ownership, and revoke any unexpected grants.
+3. Verify network reachability **before installing credentials in GitHub**. GitHub-hosted runners cannot reach Railway's private `.railway.internal` address directly. Prefer a private runner/network tunnel with restricted database role and TLS; do not publish an unrestricted PostgreSQL endpoint just to make the benchmark run.
+4. Configure GitHub environment `oos-production` with required reviewers, secrets `OOS_COLLECTOR_DATABASE_URL`, `OOS_READONLY_DATABASE_URL`, `OOS_COLLECTOR_SECRET`, and configuration variable `OOS_FROZEN_COSTS_JSON`. Secrets must never be printed. Scheduled workflows only run on the default branch and require reviewed merge; run in restricted shadow mode.
+5. Run one real prospective prediction and check the actual DB-side `frozen_at` is in the allowed signal window, preceding all four Kraken candle close times. Inspect the signed source receipt and immutability conflict check, then run evaluator in a SELECT-only transaction. Do not count an old historical row as prospective.
+6. PostgreSQL `clock_timestamp()` in an INSERT captures an **insert-time attestation**, not a true durable commit timestamp. Exact commit-time proof requires a separate architecture such as PostgreSQL commit-timestamp tracking (subject to configuration, permissions, retention and transaction-ID handling), or trusted external receipt after COMMIT. Without that proof, label INSERT_TIME_VERIFIED, COMMIT_TIME_UNKNOWN, and fail closed for any requirement that strictly demands a commit timestamp.
+
+Promotion remains disabled until an independently checked new-data benchmark is complete.
