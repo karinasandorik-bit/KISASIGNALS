@@ -5,10 +5,26 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: contracts_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_ephemeral_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d contracts_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      DATABASE_URL: postgresql://postgres:ci_ephemeral_only@localhost:5432/contracts_ci
+      PGPASSWORD: ci_ephemeral_only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
+      - name: Bootstrap real transaction tables
+        run: psql -h localhost -U postgres -d contracts_ci -v ON_ERROR_STOP=1 -f sql/oos-ci-bootstrap.sql
       - run: npm test
