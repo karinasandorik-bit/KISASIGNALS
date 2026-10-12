@@ -1,0 +1,75 @@
+name: OWL offsite backup and independent restore
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offsite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: owl_restore
+          POSTGRES_PASSWORD: test-only-postgres-pass
+          POSTGRES_DB: owl_restore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U owl_restore -d owl_restore_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      SOURCE_DATABASE_URL: ${{ secrets.OWL_RAILWAY_DATABASE_PUBLIC_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.OWL_BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SOURCE_DATABASE_URL" || { echo 'MISSING_SOURCE_SECRET'; exit 11; }
+          test -n "$BACKUP_PASSPHRASE" || { echo 'MISSING_BACKUP_PASSPHRASE'; exit 12; }
+      - name: Backup Railway from external runner (PostgreSQL 18)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/owl-private
+          chmod 700 /tmp/owl-private
+          docker run --rm --network host -e SOURCE_DATABASE_URL -v /tmp/owl-private:/backup postgres:18 bash -euc '
+            pg_dump --dbname="$SOURCE_DATABASE_URL" --format=custom --no-owner --no-acl --file=/backup/railway.dump
+            pg_restore --list /backup/railway.dump >/dev/null
+          '
+          test -s /tmp/owl-private/railway.dump
+          sha256sum /tmp/owl-private/railway.dump | sed 's@/tmp/owl-private/@@' > /tmp/owl-private/manifest.sha256
+      - name: Restore in independent ephemeral PostgreSQL 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host -v /tmp/owl-private:/backup postgres:18 bash -euc '
+            export PGPASSWORD=test-only-postgres-pass
+            pg_restore --host=127.0.0.1 --port=5432 --username=owl_restore --dbname=owl_restore_test --no-owner --no-acl --exit-on-error /backup/railway.dump
+            psql --host=127.0.0.1 --port=5432 --username=owl_restore --dbname=owl_restore_test -Atqc "SELECT count(*) FROM pg_tables WHERE schemaname = '''public'''" > /backup/restore_public_tables.txt
+          '
+          echo "RESTORE_COMPLETE=true"
+          echo "RESTORE_PUBLIC_TABLES=$(cat /tmp/owl-private/restore_public_tables.txt)"
+          (cd /tmp/owl-private && sha256sum -c manifest.sha256)
+      - name: Encrypt offsite snapshot before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl enc -aes-256-cbc -pbkdf2 -iter 250000 -salt -in /tmp/owl-private/railway.dump -out /tmp/owl-backup.dump.enc -pass env:BACKUP_PASSPHRASE
+          sha256sum /tmp/owl-backup.dump.enc > /tmp/owl-backup-encrypted.sha256
+          cp /tmp/owl-private/restore_public_tables.txt /tmp/restore_public_tables.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owl-encrypted-offsite-backup
+          path: |
+            /tmp/owl-backup.dump.enc
+            /tmp/owl-backup-encrypted.sha256
+            /tmp/restore_public_tables.txt
+          if-no-files-found: error
+          retention-days: 7
+      - name: Clean sensitive workspace
+        if: always()
+        run: rm -f /tmp/owl-private/railway.dump /tmp/owl-private/manifest.sha256
