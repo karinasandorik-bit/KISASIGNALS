@@ -33,6 +33,8 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Bootstrap isolated DB and least-privilege reader
         run: psql -h localhost -U postgres -d oos_ci -v ON_ERROR_STOP=1 -f sql/oos-ci-bootstrap.sql
+      - name: Install restricted collector database routine
+        run: psql -h localhost -U postgres -d oos_ci -v ON_ERROR_STOP=1 -f sql/oos-collector-role.sql
       - name: Assert evaluator role is truly read-only
         run: |
           psql "postgresql://oos_reader:ci_only_override_in_runner@localhost:5432/oos_ci" -v ON_ERROR_STOP=1 -Atc "select has_table_privilege(current_user,'owl_internal.predictions','SELECT') and not has_table_privilege(current_user,'owl_internal.predictions','INSERT') and not has_table_privilege(current_user,'public.evidence_events','UPDATE')" | grep '^t$'
