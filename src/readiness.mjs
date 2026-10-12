@@ -27,5 +27,8 @@ export async function checkReadiness({connectionString=process.env.DATABASE_URL,
 }
 
 export function tickFailure(error,stage,{now=()=>new Date().toISOString()}={}){
-  return {event:'TICK_FAILED',at:now(),stage,code:String(error?.code||error?.message||'TICK_ERROR').slice(0,120)};
+  const raw=typeof error?.code==='string'?error.code:'';
+  const code=/^[A-Z][A-Z0-9_]{1,63}$/.test(raw)?raw:
+    /timeout|aborted/i.test(error?.message||'')?'DEPENDENCY_TIMEOUT':'TICK_ERROR';
+  return {event:'TICK_FAILED',at:now(),stage,code};
 }
