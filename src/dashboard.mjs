@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import {runLive,market} from './live.mjs';
+import {pushActionableSignal} from './signal-push.mjs';
 import {settleEligible} from './settlement.mjs';
 import {ledgerHealth,readEvidence} from './ledger.mjs';
 import {safeCaptureFuturesState,futuresProviderHealth} from './futures-recorder.mjs';
@@ -29,7 +30,7 @@ function payload(){return JSON.stringify({latest,desk,realtime,rows:dbRows??read
 function broadcast(){const d='data: '+payload()+'\n\n';for(const r of clients)r.write(d)}
 function pushSignal(event){const d='event: actionable_signal\ndata: '+JSON.stringify(event)+'\n\n';for(const r of clients)r.write(d)}
 async function refreshEvidence(){dbHealth=await ledgerHealth();if(dbHealth.postgres){dbRows=await readEvidence('prediction');dbSettlements=await readEvidence('settlement');dbTrials=await readEvidence('ablation_trial',{limit:500});dbTrialSettlements=await readEvidence('ablation_settlement',{limit:500});providerHealth=await readEvidence('provider_health',{limit:50})}else{dbRows=dbSettlements=null;dbTrials=[];dbTrialSettlements=[];providerHealth=[]}}
-async function tick(){if(running)return;running=true;try{const m=await market();candles=(m.bars||[]).slice(-80);latest=await runLive({marketFn:async()=>m,ledger:LEDGER,onSignal:pushSignal});await settleEligible({predictions:LEDGER,settlements:SETTLEMENTS,bars:m.bars,now:m.received_at});futuresState=await safeCaptureFuturesState('BTCUSDT');
+async function tick(){if(running)return;running=true;try{const m=await market();candles=(m.bars||[]).slice(-80);latest=await runLive({marketFn:async()=>m,ledger:LEDGER,onSignal:pushSignal});if(latest?.status==='SHADOW_SIGNAL_ARMED'){try{await pushActionableSignal(latest,{emit:pushSignal})}catch(e){console.error(JSON.stringify({event:'SIGNAL_PUSH_FAILED',error:e.message}))}}await settleEligible({predictions:LEDGER,settlements:SETTLEMENTS,bars:m.bars,now:m.received_at});futuresState=await safeCaptureFuturesState('BTCUSDT');
 const intel=await Promise.allSettled([scanUniverse({limit:Number(process.env.UNIVERSE_LIMIT||60),previous:previousUniverse}),marketContext()]);
 if(intel[0].status==='fulfilled'){universe=intel[0].value;previousUniverse=new Map(universe.filter(x=>Number.isFinite(x.openInterest)).map(x=>[x.symbol,{openInterest:x.openInterest,observedAt:x.observedAt}]))}else console.error(JSON.stringify({event:'UNIVERSE_SCAN_FAILED',error:intel[0].reason?.message}));
 if(intel[1].status==='fulfilled')context=intel[1].value;else console.error(JSON.stringify({event:'MARKET_CONTEXT_FAILED',error:intel[1].reason?.message}));
