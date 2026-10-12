@@ -1,0 +1,41 @@
+name: OOS Independent Collector (production)
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: oos-collector-production
+  cancel-in-progress: false
+jobs:
+  collect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: oos-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Collect closed Kraken outcomes only
+        env:
+          DATABASE_URL: ${{ secrets.OOS_COLLECTOR_DATABASE_URL }}
+          OOS_COLLECTOR_SECRET: ${{ secrets.OOS_COLLECTOR_SECRET }}
+        run: |
+          test -n "$DATABASE_URL" && test -n "$OOS_COLLECTOR_SECRET"
+          npm run oos:collector:once
+      - name: Independently evaluate existing frozen records
+        env:
+          OOS_READONLY_DATABASE_URL: ${{ secrets.OOS_READONLY_DATABASE_URL }}
+          OOS_FROZEN_COSTS_JSON: ${{ vars.OOS_FROZEN_COSTS_JSON }}
+        run: |
+          test -n "$OOS_READONLY_DATABASE_URL" && test -n "$OOS_FROZEN_COSTS_JSON"
+          set +e
+          npm run oos:evaluate > "$RUNNER_TEMP/oos-report.json" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/oos-report.json"
+          test "$rc" -eq 0 || test "$rc" -eq 2
