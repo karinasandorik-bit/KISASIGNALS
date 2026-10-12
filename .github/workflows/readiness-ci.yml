@@ -1,0 +1,42 @@
+name: Readiness isolation and fault checks
+on:
+  pull_request:
+    paths:
+      - 'src/readiness.mjs'
+      - 'src/dashboard.mjs'
+      - 'railway.json'
+      - 'tests/readiness*.test.mjs'
+      - '.github/workflows/readiness-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kisa_ci
+          POSTGRES_PASSWORD: disposable_ci_only
+          POSTGRES_DB: kisa_readiness_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U kisa_ci -d kisa_readiness_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      CI: 'true'
+      OWL_ISOLATED_DATABASE_URL: postgresql://kisa_ci:disposable_ci_only@localhost:5432/kisa_readiness_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --omit=dev
+      - name: Static syntax and unit failure matrix
+        run: |
+          node --check src/dashboard.mjs
+          node --test tests/readiness.test.mjs
+      - name: Disposable PostgreSQL schema and outage tests
+        run: node --test tests/readiness-postgres-integration.test.mjs
