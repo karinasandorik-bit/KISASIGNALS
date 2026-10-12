@@ -31,7 +31,7 @@ export async function runDelivery({connectionString=process.env.DATABASE_URL,rep
  const pool=new Pool({connectionString,max:2});
  try{
   const row=await claimDelivery(pool,reportId,workerId);
-  if(!row)return reconcileDelivery(pool,reportId,lookup);
+  if(!row)return await reconcileDelivery(pool,reportId,lookup);
   const receipt=await send(reportId,row);
   if(crashAfterSend)process.kill(process.pid,'SIGKILL');
   if(!receipt?.id)throw Error('PROVIDER_ID_UNKNOWN');
