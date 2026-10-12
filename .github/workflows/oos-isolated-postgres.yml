@@ -33,6 +33,8 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Bootstrap isolated DB and least-privilege reader
         run: psql -h localhost -U postgres -d oos_ci -v ON_ERROR_STOP=1 -f sql/oos-ci-bootstrap.sql
+      - name: Install server-side freeze timestamps
+        run: psql -h localhost -U postgres -d oos_ci -v ON_ERROR_STOP=1 -f sql/oos-server-freeze-time.sql
       - name: Install restricted collector database routine
         run: psql -h localhost -U postgres -d oos_ci -v ON_ERROR_STOP=1 -f sql/oos-collector-role.sql
       - name: Assert evaluator role is truly read-only
