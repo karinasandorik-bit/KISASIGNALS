@@ -27,5 +27,6 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Bootstrap real transaction tables
         run: psql -h localhost -U postgres -d contracts_ci -v ON_ERROR_STOP=1 -f sql/oos-ci-bootstrap.sql
+      - run: psql -h localhost -U postgres -d contracts_ci -v ON_ERROR_STOP=1 -f sql/oos-server-freeze-time.sql
       - run: psql -h localhost -U postgres -d contracts_ci -v ON_ERROR_STOP=1 -f sql/oos-collector-role.sql
       - run: npm test
