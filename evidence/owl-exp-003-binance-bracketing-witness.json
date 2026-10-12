@@ -1,0 +1,39 @@
+{
+  "schema": "owl.market-witness.v1",
+  "decision_id": "okx-btc-15m-1791780300000-ema-v1",
+  "source": "Binance USD-M futures aggTrades API via connected Binance",
+  "instrument": "BTCUSDT",
+  "market_type": "USDT_M_PERPETUAL",
+  "target_at": "2026-10-12T09:05:00.738Z",
+  "target_ms": 1791795900738,
+  "primary_venue": "OKX_SWAP",
+  "reference_venue": "BITGET_USDT_FUTURES",
+  "independent_venue": "BINANCE_USDM_FUTURES",
+  "prior_price": "84100.1",
+  "action": "NO_TRADE",
+  "trades": [
+    {
+      "id": 3482004272,
+      "price": "83504.40",
+      "time_ms": 1791795900700
+    },
+    {
+      "id": 3482004273,
+      "price": "83504.30",
+      "time_ms": 1791795900705
+    },
+    {
+      "id": 3482004274,
+      "price": "83504.30",
+      "time_ms": 1791795900859
+    },
+    {
+      "id": 3482004275,
+      "price": "83504.40",
+      "time_ms": 1791795900939
+    }
+  ],
+  "temporal_method": "nearest trade before and after target; bracketing trades at 705ms and 859ms; no interpolated fills",
+  "collection_status": "HISTORICAL_RETRIEVAL_NOT_ORIGIN_SIGNED",
+  "notes": "Reference venue used at original decision is Bitget; chosen Binance futures witness is third venue. No order was executed. Price difference is descriptive, not PnL."
+}
