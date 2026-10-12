@@ -18,3 +18,12 @@ CREATE TABLE IF NOT EXISTS owl_internal.settlements (
   prediction_id text PRIMARY KEY REFERENCES owl_internal.predictions(id),
   outcome jsonb NOT NULL
 );
+
+-- Precreate shared ledger DDL to avoid concurrent CREATE TABLE races across Node test files.
+CREATE TABLE IF NOT EXISTS public.evidence_events (
+ event_type text NOT NULL,
+ event_id text NOT NULL,
+ observed_at timestamptz NOT NULL DEFAULT now(),
+ payload jsonb NOT NULL,
+ PRIMARY KEY(event_type,event_id)
+);
