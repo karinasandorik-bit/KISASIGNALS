@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {verifyEV} from '../src/ev-verifier.mjs';
+const valid=()=>({side:'LONG',prospective:true,independentHoldout:true,n:200,evidenceFresh:true,executionVerified:true,pWinLower:.65,winLower:.005,lossUpper:.003,costs:{feesUpper:.001,slippageUpper:.0002,fundingUpper:.0001,modelErrorUpper:.0001}});
+test('positive conservative EV permits shadow only',()=>{const x=verifyEV(valid());assert.equal(x.action,'LONG');assert.equal(x.scope,'SHADOW_ONLY');assert.ok(x.netEVLower>0);});
+test('no independent holdout => NO_TRADE',()=>assert.equal(verifyEV({...valid(),independentHoldout:false}).action,'NO_TRADE'));
+test('missing funding => NO_TRADE',()=>{const q=valid();delete q.costs.fundingUpper;assert.equal(verifyEV(q).reason,'UNKNOWN_COST');});
+test('stale data => NO_TRADE',()=>assert.equal(verifyEV({...valid(),evidenceFresh:false}).action,'NO_TRADE'));
+test('insufficient sample => NO_TRADE',()=>assert.equal(verifyEV({...valid(),n:20}).action,'NO_TRADE'));
+test('high costs flip decision',()=>{const q=valid();q.costs.slippageUpper=.01;assert.equal(verifyEV(q).reason,'NON_POSITIVE_CONSERVATIVE_EV');});
+test('low confidence bound => NO_TRADE',()=>assert.equal(verifyEV({...valid(),pWinLower:.4}).action,'NO_TRADE'));
+test('invalid fees fail closed',()=>{for(const x of [NaN,Infinity,-.01]){const q=valid();q.costs.feesUpper=x;assert.equal(verifyEV(q).action,'NO_TRADE');}});
+test('never grants live execution',()=>assert.equal(verifyEV({...valid(),side:'SHORT'}).scope,'SHADOW_ONLY'));
