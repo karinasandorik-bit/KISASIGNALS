@@ -35,7 +35,7 @@ export function buildVerifiedEmailContract(row,{now=Date.now()}={}) {
  const expiresAt=Number.isFinite(Date.parse(observedAt))?new Date(Date.parse(observedAt)+Math.min(2,Number(row.entryPolicy?.expiryHours)||2)*3600000).toISOString():null;
  const rawSources=row?.futuresConsensus?.sources;
  const sources=Array.isArray(rawSources)?rawSources.map(x=>typeof x==='string'?x:x?.source).filter(Boolean):[];
- const c={decisionId:row?.predictionId,symbol:row?.market?.symbol,side,mode:'SHADOW_ONLY',status:row?.status,entry,stopLoss:sl,takeProfit:tp1,takeProfit2:tp2,expiresAt,riskFraction:0.005};
+ const c={decisionId:row?.predictionId,modelHash:row?.model?.sha256,symbol:row?.market?.symbol,side,mode:'SHADOW_ONLY',status:row?.status,entry,stopLoss:sl,takeProfit:tp1,takeProfit2:tp2,expiresAt,riskFraction:0.005};
  const evidence={observedAt,sources,futuresConsensus:{verified:row?.futuresConsensus?.verified===true,sourceCount:row?.futuresConsensus?.sourceCount||0},referencePrice:row?.market?.reference_close,costBps,expectedMfe90Bps:tp2Bps,expectedEvBps:row?.decision?.evBps};
  const attestation=verifyTradeContract(c,evidence,{now});
  return {...c,observedAt,netRR:attestation.netRR,sources,futuresConsensus:evidence.futuresConsensus,independentValidation:attestation.eligible,validation:{...attestation,kind:'DETERMINISTIC_INDEPENDENT_CODE_PATH',notProofOfProfitability:true}};
