@@ -1,0 +1,50 @@
+name: oos-isolated-postgres
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  oos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: oos_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_ephemeral_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d oos_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      PGPASSWORD: ci_ephemeral_only
+      DATABASE_URL: postgresql://postgres:ci_ephemeral_only@localhost:5432/oos_ci
+      OOS_READONLY_DATABASE_URL: postgresql://oos_reader:ci_only_override_in_runner@localhost:5432/oos_ci
+      OOS_FROZEN_COSTS_JSON: '{"feeEntryBps":4,"feeExitBps":4,"spreadBps":2,"slippageEntryBps":3,"slippageExitBps":3,"fundingBps":1}'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Bootstrap isolated DB and least-privilege reader
+        run: psql -h localhost -U postgres -d oos_ci -v ON_ERROR_STOP=1 -f sql/oos-ci-bootstrap.sql
+      - name: Assert evaluator role is truly read-only
+        run: |
+          psql "postgresql://oos_reader:ci_only_override_in_runner@localhost:5432/oos_ci" -v ON_ERROR_STOP=1 -Atc "select has_table_privilege(current_user,'owl_internal.predictions','SELECT') and not has_table_privilege(current_user,'owl_internal.predictions','INSERT') and not has_table_privilege(current_user,'public.evidence_events','UPDATE')" | grep '^t$'
+          if psql "postgresql://oos_reader:ci_only_override_in_runner@localhost:5432/oos_ci" -v ON_ERROR_STOP=1 -c "insert into public.evidence_events(event_type,event_id,payload) values ('malicious','x','{}')"; then echo 'READER_WRITE_ALLOWED'; exit 1; fi
+      - name: Run OOS unit and DB tests
+        run: node --test tests/oos-*.test.mjs
+      - name: Fail closed when no prospective data
+        run: |
+          set +e
+          npm run oos:evaluate > /tmp/eval.json 2>&1
+          ec=$?
+          set -e
+          cat /tmp/eval.json
+          test "$ec" -eq 2
+          grep -q 'INSUFFICIENT_PAIRED_SAMPLE' /tmp/eval.json
