@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {atomicFreeze,claimDue,finishSettlement} from '../src/atomic-research-store.mjs';
 test('two workers cannot settle one frozen prediction', {skip:!process.env.DATABASE_URL},async()=>{
  const id='fault-'+randomUUID();
- const row={predictionId:id,market:{received_at:new Date(Date.now()-5*3600000).toISOString()},decision:{action:'NO_TRADE'}};
+ const row={predictionId:id,market:{received_at:new Date(Date.now()-5*3600000).toISOString(),reference_close:100,feature_timestamp:new Date(Date.now()-5*3600000).toISOString(),source:'fixture'},decision:{action:'NO_TRADE'}};
  await atomicFreeze(row);
  const a=new pg.Client({connectionString:process.env.DATABASE_URL});
  const b=new pg.Client({connectionString:process.env.DATABASE_URL});
