@@ -14,10 +14,37 @@ export async function deliverGmailSignal(signal,{env=process.env, now=Date.now()
     // settled prospective track-record evidence supports the model.
     let trackRecord;
     try {
-      const q=await pool.query(`SELECT payload FROM evidence_events
-        WHERE event_type='email_track_record'
-        ORDER BY observed_at DESC LIMIT 1000`);
-      trackRecord=assessEmailTrackRecord(q.rows.map(x=>x.payload));
+      // Read immutable prediction + independently sourced settled outcome directly.
+      // Never trust self-declared 'independentlySettled' event flags.
+      const q=await pool.query(`SELECT p.id, p.payload AS prediction, p.target_at,
+        s.outcome FROM owl_internal.predictions p
+        INNER JOIN owl_internal.settlements s ON s.prediction_id=p.id
+        WHERE p.target_at <= clock_timestamp()
+        ORDER BY p.target_at DESC LIMIT 1000`);
+      const records=q.rows.flatMap(({id,prediction,outcome,target_at})=>{
+        const side=prediction?.decision?.action;
+        const entry=prediction?.plan?.entry;
+        const exit=outcome?.exitPrice;
+        const frozenAt=prediction?.market?.received_at||prediction?.ts;
+        const settledAt=outcome?.observedAt;
+        const independent=typeof outcome?.independentSource==='string' &&
+          outcome.independentSource.startsWith('kraken:') &&
+          !String(prediction?.market?.source||'').toLowerCase().includes('kraken') &&
+          outcome.instrument==='BTC-USD' && outcome.marketType==='spot' &&
+          typeof outcome.evidenceHash==='string' && /^[a-f0-9]{64}$/.test(outcome.evidenceHash) &&
+          Number.isFinite(Date.parse(settledAt)) &&
+          Date.parse(settledAt)>=Date.parse(target_at) &&
+          outcome.costKind==='ASSUMED';
+        if(!independent || !['LONG','SHORT'].includes(side) ||
+           prediction?.status!=='SHADOW_SIGNAL_ARMED' ||
+           prediction?.model?.sha256!==signal?.modelHash ||
+           !(Number.isFinite(entry)&&entry>0&&Number.isFinite(exit)&&exit>0) ||
+           !(Number.isFinite(Date.parse(frozenAt))&&Date.parse(frozenAt)<Date.parse(target_at)) ||
+           !(Number.isFinite(prediction?.decision?.costBps)&&prediction.decision.costBps>=0))return [];
+        return [{decisionId:id,prospective:true,independentlySettled:true,
+          frozenAt,settledAt,netReturnBps:(exit/entry-1)*10000*(side==='LONG'?1:-1)-prediction.decision.costBps}];
+      });
+      trackRecord=assessEmailTrackRecord(records);
     } catch(e) {
       return {status:'QUALITY_GATE_UNAVAILABLE',errorCode:'EVIDENCE_QUERY_FAILED'};
     }
