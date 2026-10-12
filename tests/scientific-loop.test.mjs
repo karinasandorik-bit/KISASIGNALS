@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {freezeHypothesis,evaluateHypothesis,promotionGate} from '../src/scientific-loop.mjs';
+const h={id:'T1',symbol:'BTCUSDT',action:'LONG',observedAt:'2026-10-12T09:00:00Z',frozenAt:'2026-10-12T09:01:00Z',targetAt:'2026-10-12T13:01:00Z',entryPrice:100,baselineId:'A1',candidateId:'A2',source:'venue-A',counterargument:'Possible liquidity shock',modelHash:'test-hash',maxRoundtripCostBps:20};
+const o={id:'T1',observedAt:'2026-10-12T13:02:00Z',exitPrice:101,independentSource:'venue-B',roundtripCostBps:20};
+test('frozen commitment is deterministic',()=>assert.equal(freezeHypothesis(h).commitment,freezeHypothesis({...h}).commitment));
+test('lookahead rejected',()=>assert.throws(()=>freezeHypothesis({...h,observedAt:'2026-10-13T00:00:00Z'})));
+test('counterargument required',()=>assert.throws(()=>freezeHypothesis({...h,counterargument:''})));
+test('cost-adjusted evaluation',()=>assert.ok(Math.abs(evaluateHypothesis(freezeHypothesis(h),o).netPct-.8)<1e-9));
+test('future outcome required',()=>assert.throws(()=>evaluateHypothesis(freezeHypothesis(h),{...o,observedAt:'2026-10-12T12:00:00Z'})));
+test('independent source required',()=>assert.throws(()=>evaluateHypothesis(freezeHypothesis(h),{...o,independentSource:'venue-A'})));
+test('tampering rejected',()=>assert.throws(()=>evaluateHypothesis({...freezeHypothesis(h),action:'SHORT'},o)));
+test('few samples rejected',()=>assert.equal(promotionGate({candidate:[1],baseline:[0]}).status,'REJECT'));
+test('improvement requires review',()=>assert.equal(promotionGate({candidate:Array(40).fill(.2),baseline:Array(40).fill(0)}).status,'REVIEW'));
+test('regression rejected',()=>assert.equal(promotionGate({candidate:Array(40).fill(-.2),baseline:Array(40).fill(0)}).status,'REJECT'));
+test('missing outcomes rejected',()=>assert.throws(()=>promotionGate({candidate:Array(40).fill(NaN),baseline:Array(40).fill(0)})));
