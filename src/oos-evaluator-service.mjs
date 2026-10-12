@@ -13,7 +13,7 @@ export async function runOosEvaluation({read=readOosLedger,priceCosts=costs(),mi
   const id=frozen.id,p=frozen.payload,w=world.get(id),b=baseline.get(id);
   if(!w||!b){exclusions.push({id,reason:!w?'WORLD_MISSING':'BASELINE_MISSING'});continue}
   try{
-   if(b.predictionId!==id||b.frozenAt!==p.frozenAt)throw Error('BASELINE_NOT_PAIRED_PRECOMMITTED');
+   if(b.predictionId!==id||b.frozenAt!==(p.frozenAt??p.market?.feature_timestamp??p.ts))throw Error('BASELINE_NOT_PAIRED_PRECOMMITTED');
    const c=evaluateOne(p,w,priceCosts);
    const a=evaluateOne(b,w,priceCosts);
    const signalAt=p.market?.feature_timestamp??p.ts;
