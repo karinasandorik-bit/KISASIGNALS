@@ -41,3 +41,17 @@ CREATE TABLE IF NOT EXISTS public.owl_email_outbox_v2 (
  error_code text,
  CHECK (status IN ('PENDING','CLAIMED','SENT','UNKNOWN','REJECTED'))
 );
+
+CREATE TABLE IF NOT EXISTS public.owl_market_report_delivery (
+ report_id text PRIMARY KEY,
+ window_start timestamptz NOT NULL,
+ window_end timestamptz NOT NULL,
+ recipient text NOT NULL,
+ state text NOT NULL CHECK(state IN ('PENDING','CONFIG_MISSING','SENDING','SENT','FAILED','UNKNOWN')),
+ attempts integer NOT NULL DEFAULT 0,
+ provider_message_id text,
+ last_error text,
+ payload jsonb,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
