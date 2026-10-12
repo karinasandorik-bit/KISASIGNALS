@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kisa.dev/protocol/v0.1/core/activity.schema.json",
+  "title": "KISA Activity",
+  "type": "object",
+  "required": [
+    "kisaVersion",
+    "id",
+    "activityType",
+    "startedAt",
+    "agentId",
+    "used"
+  ],
+  "properties": {
+    "kisaVersion": {
+      "const": "0.1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "activityType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "endedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "agentId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "generated": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "policyDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

@@ -23,3 +23,12 @@ test('scoped proven grant authorizes only its bounded action',()=>{
  assert.equal(verifyCapabilityGrant(grant,{subjectHash:'model-abc',mode:'MICRO_LIVE',intent}).permitted,false);
  assert.equal(verifyCapabilityGrant(grant,{subjectHash:'model-abc',mode:'PAPER',intent:{...intent,notional_usd:26}}).permitted,false);
 });
+
+
+test('decision-bound grant cannot authorize another decision',()=>{
+ const grant=createCapabilityGrant({subjectHash:'model-abc',decisionId:'decision-1',modes:['PAPER'],symbols:['BTCUSDT'],maxRiskUsd:1,maxNotionalUsd:25,maxLeverage:1,evidenceRoot:'evidence-sha256',expiresAt:'2099-01-01T00:00:00.000Z'});
+ assert.equal(verifyCapabilityGrant(grant,{subjectHash:'model-abc',decisionId:'decision-1',mode:'PAPER',intent}).permitted,true);
+ const wrong=verifyCapabilityGrant(grant,{subjectHash:'model-abc',decisionId:'decision-2',mode:'PAPER',intent});
+ assert.equal(wrong.permitted,false);
+ assert.ok(wrong.reasons.includes('DECISION_MISMATCH'));
+});

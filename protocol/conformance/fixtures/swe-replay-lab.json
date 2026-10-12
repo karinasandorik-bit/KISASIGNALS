@@ -1,0 +1,11 @@
+{
+  "consumer": "SWE-REPLAY-LAB",
+  "mapping": {
+    "Evidence": "observation_sha256 / stdout_sha256 / stderr_sha256",
+    "Decision": "parsed_action at monotonic step_index",
+    "Outcome": "visible tests + hidden terminal oracle",
+    "Lineage": "workspace_sha256 before/after actions",
+    "Activity": "MODEL_CALL / agent action / replay branch"
+  },
+  "frozenExperimentPolicy": "adapter-only; do not mutate frozen replay-001 protocol"
+}

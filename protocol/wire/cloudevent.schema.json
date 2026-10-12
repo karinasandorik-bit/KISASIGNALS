@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KISA CloudEvent Profile",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "time",
+    "data"
+  ],
+  "properties": {
+    "specversion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "pattern": "^dev\\.kisa\\."
+    },
+    "subject": {
+      "type": "string"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dataschema": {
+      "type": "string"
+    },
+    "kisa_version": {
+      "const": "0.1"
+    },
+    "kisa_trace_id": {
+      "type": "string"
+    },
+    "kisa_content_digest": {
+      "type": "string"
+    },
+    "data": {}
+  },
+  "additionalProperties": true
+}
