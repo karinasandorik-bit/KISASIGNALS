@@ -1,5 +1,6 @@
 import {validateEmailSignal} from './email-signal-gate.mjs';
 import {Pool} from 'pg';
+import {createHash} from 'node:crypto';
 import {assessEmailTrackRecord} from './email-track-record-gate.mjs';
 // SMTP credentials must be supplied only via Railway secret variables.
 // A send timeout after provider acceptance is UNKNOWN, never automatically retried.
@@ -32,6 +33,7 @@ export async function deliverGmailSignal(signal,{env=process.env, now=Date.now()
           !String(prediction?.market?.source||'').toLowerCase().includes('kraken') &&
           outcome.instrument==='BTC-USD' && outcome.marketType==='spot' &&
           typeof outcome.evidenceHash==='string' && /^[a-f0-9]{64}$/.test(outcome.evidenceHash) &&
+          outcome.evidenceHash===createHash('sha256').update(JSON.stringify(Object.fromEntries(Object.entries(outcome).filter(([key])=>key!=='evidenceHash')))).digest('hex') &&
           Number.isFinite(Date.parse(settledAt)) &&
           Date.parse(settledAt)>=Date.parse(target_at) &&
           outcome.costKind==='ASSUMED';
