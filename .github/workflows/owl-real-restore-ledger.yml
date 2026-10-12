@@ -1,0 +1,72 @@
+name: OWL real backup restore and ledger attestation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      restored:
+        image: postgres:18
+        env:
+          POSTGRES_DB: owl_disposable_restore
+          POSTGRES_PASSWORD: restore_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d owl_disposable_restore"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      SOURCE_DATABASE_URL: ${{ secrets.OWL_RAILWAY_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.OWL_BACKUP_PASSPHRASE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.OWL_BACKUP_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.OWL_BACKUP_SECRET_ACCESS_KEY }}
+      S3_ENDPOINT: ${{ secrets.OWL_BACKUP_S3_ENDPOINT }}
+      S3_BUCKET: ${{ secrets.OWL_BACKUP_S3_BUCKET }}
+      AWS_DEFAULT_REGION: auto
+      RESTORE_DATABASE_URL: postgresql://postgres:restore_test_only@127.0.0.1:5432/owl_disposable_restore
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL 18 CLI
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common awscli
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-18
+      - name: Backup, independently restore, compare, and record receipts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          for k in SOURCE_DATABASE_URL BACKUP_PASSPHRASE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY S3_ENDPOINT S3_BUCKET; do
+            test -n "${!k:-}" || { echo "FAIL_CLOSED missing_configuration=$k"; exit 2; }
+          done
+          export PGSSLMODE=require
+          mkdir -p "$RUNNER_TEMP/owl"
+          cd "$RUNNER_TEMP/owl"
+          pg_dump --dbname="$SOURCE_DATABASE_URL" --format=custom --no-owner --no-acl --file=source.dump
+          pg_restore --list source.dump >/dev/null
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 250000 -in source.dump -out source.dump.enc -pass env:BACKUP_PASSPHRASE
+          sha256sum source.dump.enc | cut -d' ' -f1 > encrypted.sha256
+          KEY="owl/$(date -u +%Y/%m/%d)/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.dump.enc"
+          aws --endpoint-url "$S3_ENDPOINT" s3 cp source.dump.enc "s3://$S3_BUCKET/$KEY" --no-progress
+          aws --endpoint-url "$S3_ENDPOINT" s3 cp encrypted.sha256 "s3://$S3_BUCKET/$KEY.sha256" --no-progress
+          rm source.dump.enc
+          aws --endpoint-url "$S3_ENDPOINT" s3 cp "s3://$S3_BUCKET/$KEY" retrieved.enc --no-progress
+          test "$(sha256sum retrieved.enc | cut -d' ' -f1)" = "$(cat encrypted.sha256)" || { echo "BACKUP_HASH_MISMATCH"; exit 3; }
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 -in retrieved.enc -out recovered.dump -pass env:BACKUP_PASSPHRASE
+          test "$(sha256sum source.dump | cut -d' ' -f1)" = "$(sha256sum recovered.dump | cut -d' ' -f1)" || { echo "DUMP_ROUNDTRIP_MISMATCH"; exit 4; }
+          PGSSLMODE=disable pg_restore --dbname="$RESTORE_DATABASE_URL" --no-owner --no-acl --exit-on-error recovered.dump
+          TABLE_SQL="SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'"
+          RTABLES=$(PGSSLMODE=disable psql "$RESTORE_DATABASE_URL" -XAtc "$TABLE_SQL")
+          test "$RTABLES" -gt 0 || exit 5
+          echo "RESTORE_COMPLETED encrypted_sha256=$(cat encrypted.sha256) public_tables=$RTABLES object_key=$KEY"
+          QUERY="SELECT count(*)::text || ':' || md5(COALESCE(string_agg(event_type || ':' || event_id || ':' || md5(payload::text), ',' ORDER BY event_type,event_id),'')) FROM evidence_events"
+          SOURCE=$(psql "$SOURCE_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$QUERY")
+          RESTORED=$(PGSSLMODE=disable psql "$RESTORE_DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "$QUERY")
+          test "$SOURCE" = "$RESTORED" || { echo "LEDGER_MISMATCH source_and_restored_differ=true"; exit 6; }
+          echo "LEDGER_MATCH count_and_digest=$RESTORED"
+          echo "EMAIL_SENT not_asserted=true reason=independent_Gmail_receipt_required"
