@@ -11,6 +11,7 @@ export async function collectorTick({connectionString=process.env.DATABASE_URL,s
  let rows;try{
   const r=await c.query(`SELECT p.id,p.payload,p.target_at FROM owl_internal.predictions p
    WHERE p.target_at <= $1::timestamptz - interval '1 minute'
+   AND p.target_at >= $1::timestamptz - interval '24 hours'
    AND NOT EXISTS (SELECT 1 FROM public.evidence_events e WHERE e.event_type='oos_independent_world' AND e.event_id=p.id)
    ORDER BY p.target_at ASC LIMIT $2`,[new Date(now),limit]);rows=r.rows
  }finally{await c.end()}
