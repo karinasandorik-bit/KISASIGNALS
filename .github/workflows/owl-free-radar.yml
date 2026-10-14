@@ -1,0 +1,23 @@
+name: OWL Free Agent — discovery radar
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+permissions:
+  contents: read
+  actions: read
+  issues: read
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    concurrency:
+      group: owl-free-radar
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan public engineering and opportunity signals
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWL_REPO: ${{ github.repository }}
+        run: python3 owl-free-agent/radar.py
